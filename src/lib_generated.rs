@@ -482,8 +482,26 @@ pub const RIGHTS_PATH_UNLINK_FILE: Rights = 1 << 26;
 pub const RIGHTS_POLL_FD_READWRITE: Rights = 1 << 27;
 /// The right to invoke `sock_shutdown`.
 pub const RIGHTS_SOCK_SHUTDOWN: Rights = 1 << 28;
-/// The right to invoke `sock_accept`.
-pub const RIGHTS_SOCK_ACCEPT: Rights = 1 << 29;
+/// Connect to an address
+pub const RIGHTS_SOCK_CONNECT: Rights = 1 << 29;
+/// Listen for incoming connection on an address
+pub const RIGHTS_SOCK_LISTEN: Rights = 1 << 30;
+/// Bind an address to a socket
+pub const RIGHTS_SOCK_BIND: Rights = 1 << 31;
+/// Accept incoming connection
+pub const RIGHTS_SOCK_ACCEPT: Rights = 1 << 32;
+/// Receive data on a socket
+pub const RIGHTS_SOCK_RECV: Rights = 1 << 33;
+/// Send data on a socket
+pub const RIGHTS_SOCK_SEND: Rights = 1 << 34;
+/// Retrieve locally bound address on a socket
+pub const RIGHTS_SOCK_ADDR_LOCAL: Rights = 1 << 35;
+/// Retrieve remote address on a socket
+pub const RIGHTS_SOCK_ADDR_REMOTE: Rights = 1 << 36;
+/// Receive datagram on a socket
+pub const RIGHTS_SOCK_RECV_FROM: Rights = 1 << 37;
+/// Send datagram on a socket
+pub const RIGHTS_SOCK_SEND_TO: Rights = 1 << 38;
 
 pub type Fd = u32;
 #[repr(C)]
@@ -1146,6 +1164,163 @@ pub const RIFLAGS_RECV_WAITALL: Riflags = 1 << 1;
 pub type Roflags = u16;
 /// Returned by `sock_recv`: Message data has been truncated.
 pub const ROFLAGS_RECV_DATA_TRUNCATED: Roflags = 1 << 0;
+
+#[repr(transparent)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct SockType(u8);
+/// The file descriptor or file refers to a datagram socket.
+pub const SOCK_TYPE_SOCKET_DGRAM: SockType = SockType(0);
+/// The file descriptor or file refers to a byte-stream socket.
+pub const SOCK_TYPE_SOCKET_STREAM: SockType = SockType(1);
+impl SockType {
+    pub const fn raw(&self) -> u8 {
+        self.0
+    }
+
+    pub fn name(&self) -> &'static str {
+        match self.0 {
+            0 => "SOCKET_DGRAM",
+            1 => "SOCKET_STREAM",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+    pub fn message(&self) -> &'static str {
+        match self.0 {
+            0 => "The file descriptor or file refers to a datagram socket.",
+            1 => "The file descriptor or file refers to a byte-stream socket.",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+}
+impl fmt::Debug for SockType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SockType")
+            .field("code", &self.0)
+            .field("name", &self.name())
+            .field("message", &self.message())
+            .finish()
+    }
+}
+
+pub type IpPort = u16;
+#[repr(transparent)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct AddrType(u8);
+/// IPv4 address
+pub const ADDR_TYPE_IP4: AddrType = AddrType(0);
+/// IPv6 address
+pub const ADDR_TYPE_IP6: AddrType = AddrType(1);
+impl AddrType {
+    pub const fn raw(&self) -> u8 {
+        self.0
+    }
+
+    pub fn name(&self) -> &'static str {
+        match self.0 {
+            0 => "IP4",
+            1 => "IP6",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+    pub fn message(&self) -> &'static str {
+        match self.0 {
+            0 => "IPv4 address",
+            1 => "IPv6 address",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+}
+impl fmt::Debug for AddrType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AddrType")
+            .field("code", &self.0)
+            .field("name", &self.name())
+            .field("message", &self.message())
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct AddrIp4 {
+    pub n0: u8,
+    pub n1: u8,
+    pub h0: u8,
+    pub h1: u8,
+}
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct AddrIp4Port {
+    pub addr: AddrIp4,
+    pub port: IpPort,
+}
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct AddrIp6 {
+    pub n0: u16,
+    pub n1: u16,
+    pub n2: u16,
+    pub n3: u16,
+    pub h0: u16,
+    pub h1: u16,
+    pub h2: u16,
+    pub h3: u16,
+}
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct AddrIp6Port {
+    pub addr: AddrIp6,
+    pub port: IpPort,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union AddrU {
+    pub ip4: AddrIp4Port,
+    pub ip6: AddrIp6Port,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct Addr {
+    pub tag: u8,
+    pub u: AddrU,
+}
+
+#[repr(transparent)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct AddressFamily(u8);
+/// IP v4
+pub const ADDRESS_FAMILY_INET4: AddressFamily = AddressFamily(0);
+/// IP v6
+pub const ADDRESS_FAMILY_INET6: AddressFamily = AddressFamily(1);
+impl AddressFamily {
+    pub const fn raw(&self) -> u8 {
+        self.0
+    }
+
+    pub fn name(&self) -> &'static str {
+        match self.0 {
+            0 => "INET4",
+            1 => "INET6",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+    pub fn message(&self) -> &'static str {
+        match self.0 {
+            0 => "IP v4",
+            1 => "IP v6",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+}
+impl fmt::Debug for AddressFamily {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AddressFamily")
+            .field("code", &self.0)
+            .field("name", &self.name())
+            .field("message", &self.message())
+            .finish()
+    }
+}
 
 pub type Siflags = u16;
 pub type Sdflags = u8;
@@ -2061,93 +2236,6 @@ pub unsafe fn random_get(buf: *mut u8, buf_len: Size) -> Result<(), Errno> {
     }
 }
 
-/// Accept a new incoming connection.
-/// Note: This is similar to `accept` in POSIX.
-///
-/// ## Parameters
-///
-/// * `fd` - The listening socket.
-/// * `flags` - The desired values of the file descriptor flags.
-///
-/// ## Return
-///
-/// New socket connection
-pub unsafe fn sock_accept(fd: Fd, flags: Fdflags) -> Result<Fd, Errno> {
-    let mut rp0 = MaybeUninit::<Fd>::uninit();
-    let ret = wasi_snapshot_preview1::sock_accept(fd as i32, flags as i32, rp0.as_mut_ptr() as i32);
-    match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd)),
-        _ => Err(Errno(ret as u16)),
-    }
-}
-
-/// Receive a message from a socket.
-/// Note: This is similar to `recv` in POSIX, though it also supports reading
-/// the data into multiple buffers in the manner of `readv`.
-///
-/// ## Parameters
-///
-/// * `ri_data` - List of scatter/gather vectors to which to store data.
-/// * `ri_flags` - Message flags.
-///
-/// ## Return
-///
-/// Number of bytes stored in ri_data and message flags.
-pub unsafe fn sock_recv(
-    fd: Fd,
-    ri_data: IovecArray<'_>,
-    ri_flags: Riflags,
-) -> Result<(Size, Roflags), Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
-    let mut rp1 = MaybeUninit::<Roflags>::uninit();
-    let ret = wasi_snapshot_preview1::sock_recv(
-        fd as i32,
-        ri_data.as_ptr() as i32,
-        ri_data.len() as i32,
-        ri_flags as i32,
-        rp0.as_mut_ptr() as i32,
-        rp1.as_mut_ptr() as i32,
-    );
-    match ret {
-        0 => Ok((
-            core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size),
-            core::ptr::read(rp1.as_mut_ptr() as i32 as *const Roflags),
-        )),
-        _ => Err(Errno(ret as u16)),
-    }
-}
-
-/// Send a message on a socket.
-/// Note: This is similar to `send` in POSIX, though it also supports writing
-/// the data from multiple buffers in the manner of `writev`.
-///
-/// ## Parameters
-///
-/// * `si_data` - List of scatter/gather vectors to which to retrieve data
-/// * `si_flags` - Message flags.
-///
-/// ## Return
-///
-/// Number of bytes transmitted.
-pub unsafe fn sock_send(
-    fd: Fd,
-    si_data: CiovecArray<'_>,
-    si_flags: Siflags,
-) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasi_snapshot_preview1::sock_send(
-        fd as i32,
-        si_data.as_ptr() as i32,
-        si_data.len() as i32,
-        si_flags as i32,
-        rp0.as_mut_ptr() as i32,
-    );
-    match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
-        _ => Err(Errno(ret as u16)),
-    }
-}
-
 /// Shut down socket send and receive channels.
 /// Note: This is similar to `shutdown` in POSIX.
 ///
@@ -2158,6 +2246,430 @@ pub unsafe fn sock_shutdown(fd: Fd, how: Sdflags) -> Result<(), Errno> {
     let ret = wasi_snapshot_preview1::sock_shutdown(fd as i32, how as i32);
     match ret {
         0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Returns the local address to which the socket is bound.
+///
+/// Note: This is similar to `getsockname` in POSIX
+///
+/// When successful, the contents of the output buffer consist of an IP address,
+/// either IP4 or IP6.
+///
+/// ## Parameters
+///
+/// * `fd` - Socket that the address is bound to
+/// * `buf` - The buffer where IP addresses will be stored
+pub unsafe fn sock_addr_local(fd: Fd, buf: *mut u8, buf_len: Size) -> Result<(), Errno> {
+    let ret = wasi_snapshot_preview1::sock_addr_local(fd as i32, buf as i32, buf_len as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Returns the remote address to which the socket is connected to.
+///
+/// Note: This is similar to `getpeername` in POSIX
+///
+/// When successful, the contents of the output buffer consist of an IP address,
+/// either IP4 or IP6.
+///
+/// ## Parameters
+///
+/// * `fd` - Socket that the address is bound to
+/// * `buf` - The buffer where IP addresses will be stored
+pub unsafe fn sock_addr_remote(fd: Fd, buf: *mut u8, buf_len: Size) -> Result<(), Errno> {
+    let ret = wasi_snapshot_preview1::sock_addr_remote(fd as i32, buf as i32, buf_len as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Create an endpoint for communication.
+/// creates an endpoint for communication and returns a file descriptor
+/// tor that refers to that endpoint.  The file descriptor returned by a successful
+/// call will be the lowest-numbered file descriptor not currently open
+/// for the process.
+///
+/// Note: This is similar to `socket` in POSIX using PF_INET
+///
+/// ## Parameters
+///
+/// * `capability` - Capability descriptor
+/// * `af` - Address family
+/// * `socktype` - Socket type, either datagram or stream
+///
+/// ## Return
+///
+/// The file descriptor of the socket that has been opened.
+pub unsafe fn sock_open(
+    capability: Fd,
+    af: AddressFamily,
+    socktype: SockType,
+) -> Result<Fd, Errno> {
+    let mut rp0 = MaybeUninit::<Fd>::uninit();
+    let ret = wasi_snapshot_preview1::sock_open(
+        capability as i32,
+        af.0 as i32,
+        socktype.0 as i32,
+        rp0.as_mut_ptr() as i32,
+    );
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Enable/disable address reuse on a socket
+/// Note: This is similar to `setsockopt` in POSIX for SO_REUSEADDR
+///
+/// ## Parameters
+///
+/// * `fd` - Socket descriptor
+/// * `reuse` - 1 to enable, 0 to disable
+pub unsafe fn sock_set_reuse_addr(fd: Fd, reuse: u8) -> Result<(), Errno> {
+    let ret = wasi_snapshot_preview1::sock_set_reuse_addr(fd as i32, reuse as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Retrieve status of address reuse on a socket
+/// Note: This is similar to `getsockopt` in POSIX for SO_REUSEADDR
+///
+/// ## Parameters
+///
+/// * `fd` - Socket descriptor
+pub unsafe fn sock_get_reuse_addr(fd: Fd) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
+    let ret = wasi_snapshot_preview1::sock_get_reuse_addr(fd as i32, rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Enable port reuse on a socket
+/// Note: This is similar to `setsockopt` in POSIX for SO_REUSEPORT
+///
+/// ## Parameters
+///
+/// * `fd` - Socket descriptor
+/// * `reuse` - 1 to enable, 0 to disable
+pub unsafe fn sock_set_reuse_port(fd: Fd, reuse: u8) -> Result<(), Errno> {
+    let ret = wasi_snapshot_preview1::sock_set_reuse_port(fd as i32, reuse as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Retrieve status of port reuse on a socket
+/// Note: This is similar to `getsockopt` in POSIX for SO_REUSEPORT
+///
+/// ## Parameters
+///
+/// * `fd` - Socket descriptor
+pub unsafe fn sock_get_reuse_port(fd: Fd) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
+    let ret = wasi_snapshot_preview1::sock_get_reuse_port(fd as i32, rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Set size of receive buffer
+/// Note: This is similar to `setsockopt` in POSIX for SO_RCVBUF
+///
+/// ## Parameters
+///
+/// * `fd` - Socket descriptor
+/// * `size` - Buffer size
+pub unsafe fn sock_set_recv_buf_size(fd: Fd, size: Size) -> Result<(), Errno> {
+    let ret = wasi_snapshot_preview1::sock_set_recv_buf_size(fd as i32, size as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Retrieve the size of the receive buffer
+/// Note: This is similar to `getsockopt` in POSIX for SO_RCVBUF
+///
+/// ## Parameters
+///
+/// * `fd` - Socket descriptor
+pub unsafe fn sock_get_recv_buf_size(fd: Fd) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
+    let ret = wasi_snapshot_preview1::sock_get_recv_buf_size(fd as i32, rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Set size of send buffer
+/// Note: This is similar to `setsockopt` in POSIX for SO_SNDBUF
+///
+/// ## Parameters
+///
+/// * `fd` - Socket descriptor
+/// * `size` - Buffer size
+pub unsafe fn sock_set_send_buf_size(fd: Fd, size: Size) -> Result<(), Errno> {
+    let ret = wasi_snapshot_preview1::sock_set_send_buf_size(fd as i32, size as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Retrieve the size of the send buffer
+/// Note: This is similar to `getsockopt` in POSIX for SO_SNDBUF
+///
+/// ## Parameters
+///
+/// * `fd` - Socket descriptor
+pub unsafe fn sock_get_send_buf_size(fd: Fd) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
+    let ret = wasi_snapshot_preview1::sock_get_send_buf_size(fd as i32, rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Bind a socket
+/// Note: This is similar to `bind` in POSIX using PF_INET
+///
+/// ## Parameters
+///
+/// * `fd` - File descriptor of the socket to be bind
+/// * `addr` - Address to bind the socket to
+pub unsafe fn sock_bind(fd: Fd, addr: *mut Addr) -> Result<(), Errno> {
+    let ret = wasi_snapshot_preview1::sock_bind(fd as i32, addr as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Listen for connections on a socket
+/// Note: This is similar to `listen`
+///
+/// ## Parameters
+///
+/// * `fd` - File descriptor of the socket to be bind
+/// * `backlog` - Maximum size of the queue for pending connections
+pub unsafe fn sock_listen(fd: Fd, backlog: Size) -> Result<(), Errno> {
+    let ret = wasi_snapshot_preview1::sock_listen(fd as i32, backlog as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Accept a connection on a socket
+/// Note: This is similar to `accept`
+///
+/// ## Parameters
+///
+/// * `fd` - File descriptor of the socket to be bind
+pub unsafe fn sock_accept(fd: Fd) -> Result<Fd, Errno> {
+    let mut rp0 = MaybeUninit::<Fd>::uninit();
+    let ret = wasi_snapshot_preview1::sock_accept(fd as i32, rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Initiate a connection on a socket to the specified address
+/// Note: This is similar to `connect` in POSIX
+///
+/// ## Parameters
+///
+/// * `fd` - Socket descriptor
+/// * `addr` - Address of the socket to connect to
+pub unsafe fn sock_connect(fd: Fd, addr: *mut Addr) -> Result<(), Errno> {
+    let ret = wasi_snapshot_preview1::sock_connect(fd as i32, addr as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Receive a message from a socket.
+/// Note: This is similar to `recv` in POSIX.
+///
+/// ## Parameters
+///
+/// * `buf` - The buffer where data will be stored
+/// * `flags` - Message flags.
+pub unsafe fn sock_recv(
+    fd: Fd,
+    buf: *mut u8,
+    buf_len: Size,
+    flags: Riflags,
+) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
+    let ret = wasi_snapshot_preview1::sock_recv(
+        fd as i32,
+        buf as i32,
+        buf_len as i32,
+        flags as i32,
+        rp0.as_mut_ptr() as i32,
+    );
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Receive a message from a socket.
+///
+/// The address buffer must be at least the size of addr_t.
+///
+/// Note: This is similar to `recvfrom` in POSIX.
+///
+/// ## Parameters
+///
+/// * `buf` - The buffer where data will be stored
+/// * `addr_buf` - The address of origin for the message
+/// * `flags` - Message flags.
+pub unsafe fn sock_recv_from(
+    fd: Fd,
+    buf: *mut u8,
+    buf_len: Size,
+    addr_buf: *mut u8,
+    addr_buf_len: Size,
+    flags: Riflags,
+) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
+    let ret = wasi_snapshot_preview1::sock_recv_from(
+        fd as i32,
+        buf as i32,
+        buf_len as i32,
+        addr_buf as i32,
+        addr_buf_len as i32,
+        flags as i32,
+        rp0.as_mut_ptr() as i32,
+    );
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Send a message on a socket.
+/// Note: This is similar to `send` in POSIX.
+///
+/// ## Parameters
+///
+/// * `buf` - The buffer where data will be stored
+/// * `flags` - Message flags.
+///
+/// ## Return
+///
+/// Number of bytes transmitted.
+pub unsafe fn sock_send(
+    fd: Fd,
+    buf: *mut u8,
+    buf_len: Size,
+    flags: Siflags,
+) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
+    let ret = wasi_snapshot_preview1::sock_send(
+        fd as i32,
+        buf as i32,
+        buf_len as i32,
+        flags as i32,
+        rp0.as_mut_ptr() as i32,
+    );
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Send a message on a socket.
+/// Note: This is similar to `sendto` in POSIX.
+///
+/// ## Parameters
+///
+/// * `buf` - The buffer where data will be stored
+/// * `addr` - Address of the socket to send message to
+/// * `flags` - Message flags.
+///
+/// ## Return
+///
+/// Number of bytes transmitted.
+pub unsafe fn sock_send_to(
+    fd: Fd,
+    buf: *mut u8,
+    buf_len: Size,
+    addr: *mut Addr,
+    flags: Siflags,
+) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
+    let ret = wasi_snapshot_preview1::sock_send_to(
+        fd as i32,
+        buf as i32,
+        buf_len as i32,
+        addr as i32,
+        flags as i32,
+        rp0.as_mut_ptr() as i32,
+    );
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Resolves a hostname and a port to one or more IP addresses. Port is optional
+/// and you can pass 0 (zero) in most cases, it is used a hint for protocol.
+///
+/// Note: This is similar to `getaddrinfo` in POSIX
+///
+/// When successful, the contents of the output buffer consist of a sequence of
+/// IPv4 and/or IPv6 addresses. Each address entry consists of a addr_t object.
+/// This function fills the output buffer as much as possible, potentially
+/// truncating the last address entry.
+///
+/// ## Parameters
+///
+/// * `pool` - Address pool file descriptor
+/// * `host` - Host to resolve
+/// * `port` - Port number
+/// * `buf` - The buffer where IP addresses will be stored
+///
+/// ## Return
+///
+/// The number of bytes stored in the buffer. If less than the size of the buffer, no
+/// more IP addresses are available.
+pub unsafe fn sock_resolve(
+    pool: Fd,
+    host: &str,
+    port: IpPort,
+    buf: *mut u8,
+    buf_len: Size,
+) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
+    let ret = wasi_snapshot_preview1::sock_resolve(
+        pool as i32,
+        host.as_ptr() as i32,
+        host.len() as i32,
+        port as i32,
+        buf as i32,
+        buf_len as i32,
+        rp0.as_mut_ptr() as i32,
+    );
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -2348,19 +2860,114 @@ pub mod wasi_snapshot_preview1 {
         /// required, it's advisable to use this function to seed a pseudo-random
         /// number generator, rather than to provide the random data directly.
         pub fn random_get(arg0: i32, arg1: i32) -> i32;
-        /// Accept a new incoming connection.
-        /// Note: This is similar to `accept` in POSIX.
-        pub fn sock_accept(arg0: i32, arg1: i32, arg2: i32) -> i32;
-        /// Receive a message from a socket.
-        /// Note: This is similar to `recv` in POSIX, though it also supports reading
-        /// the data into multiple buffers in the manner of `readv`.
-        pub fn sock_recv(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32, arg5: i32) -> i32;
-        /// Send a message on a socket.
-        /// Note: This is similar to `send` in POSIX, though it also supports writing
-        /// the data from multiple buffers in the manner of `writev`.
-        pub fn sock_send(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32) -> i32;
         /// Shut down socket send and receive channels.
         /// Note: This is similar to `shutdown` in POSIX.
         pub fn sock_shutdown(arg0: i32, arg1: i32) -> i32;
+        /// Returns the local address to which the socket is bound.
+        ///
+        /// Note: This is similar to `getsockname` in POSIX
+        ///
+        /// When successful, the contents of the output buffer consist of an IP address,
+        /// either IP4 or IP6.
+        pub fn sock_addr_local(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        /// Returns the remote address to which the socket is connected to.
+        ///
+        /// Note: This is similar to `getpeername` in POSIX
+        ///
+        /// When successful, the contents of the output buffer consist of an IP address,
+        /// either IP4 or IP6.
+        pub fn sock_addr_remote(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        /// Create an endpoint for communication.
+        /// creates an endpoint for communication and returns a file descriptor
+        /// tor that refers to that endpoint.  The file descriptor returned by a successful
+        /// call will be the lowest-numbered file descriptor not currently open
+        /// for the process.
+        ///
+        /// Note: This is similar to `socket` in POSIX using PF_INET
+        pub fn sock_open(arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> i32;
+        /// Enable/disable address reuse on a socket
+        /// Note: This is similar to `setsockopt` in POSIX for SO_REUSEADDR
+        pub fn sock_set_reuse_addr(arg0: i32, arg1: i32) -> i32;
+        /// Retrieve status of address reuse on a socket
+        /// Note: This is similar to `getsockopt` in POSIX for SO_REUSEADDR
+        pub fn sock_get_reuse_addr(arg0: i32, arg1: i32) -> i32;
+        /// Enable port reuse on a socket
+        /// Note: This is similar to `setsockopt` in POSIX for SO_REUSEPORT
+        pub fn sock_set_reuse_port(arg0: i32, arg1: i32) -> i32;
+        /// Retrieve status of port reuse on a socket
+        /// Note: This is similar to `getsockopt` in POSIX for SO_REUSEPORT
+        pub fn sock_get_reuse_port(arg0: i32, arg1: i32) -> i32;
+        /// Set size of receive buffer
+        /// Note: This is similar to `setsockopt` in POSIX for SO_RCVBUF
+        pub fn sock_set_recv_buf_size(arg0: i32, arg1: i32) -> i32;
+        /// Retrieve the size of the receive buffer
+        /// Note: This is similar to `getsockopt` in POSIX for SO_RCVBUF
+        pub fn sock_get_recv_buf_size(arg0: i32, arg1: i32) -> i32;
+        /// Set size of send buffer
+        /// Note: This is similar to `setsockopt` in POSIX for SO_SNDBUF
+        pub fn sock_set_send_buf_size(arg0: i32, arg1: i32) -> i32;
+        /// Retrieve the size of the send buffer
+        /// Note: This is similar to `getsockopt` in POSIX for SO_SNDBUF
+        pub fn sock_get_send_buf_size(arg0: i32, arg1: i32) -> i32;
+        /// Bind a socket
+        /// Note: This is similar to `bind` in POSIX using PF_INET
+        pub fn sock_bind(arg0: i32, arg1: i32) -> i32;
+        /// Listen for connections on a socket
+        /// Note: This is similar to `listen`
+        pub fn sock_listen(arg0: i32, arg1: i32) -> i32;
+        /// Accept a connection on a socket
+        /// Note: This is similar to `accept`
+        pub fn sock_accept(arg0: i32, arg1: i32) -> i32;
+        /// Initiate a connection on a socket to the specified address
+        /// Note: This is similar to `connect` in POSIX
+        pub fn sock_connect(arg0: i32, arg1: i32) -> i32;
+        /// Receive a message from a socket.
+        /// Note: This is similar to `recv` in POSIX.
+        pub fn sock_recv(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32) -> i32;
+        /// Receive a message from a socket.
+        ///
+        /// The address buffer must be at least the size of addr_t.
+        ///
+        /// Note: This is similar to `recvfrom` in POSIX.
+        pub fn sock_recv_from(
+            arg0: i32,
+            arg1: i32,
+            arg2: i32,
+            arg3: i32,
+            arg4: i32,
+            arg5: i32,
+            arg6: i32,
+        ) -> i32;
+        /// Send a message on a socket.
+        /// Note: This is similar to `send` in POSIX.
+        pub fn sock_send(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32) -> i32;
+        /// Send a message on a socket.
+        /// Note: This is similar to `sendto` in POSIX.
+        pub fn sock_send_to(
+            arg0: i32,
+            arg1: i32,
+            arg2: i32,
+            arg3: i32,
+            arg4: i32,
+            arg5: i32,
+        ) -> i32;
+        /// Resolves a hostname and a port to one or more IP addresses. Port is optional
+        /// and you can pass 0 (zero) in most cases, it is used a hint for protocol.
+        ///
+        /// Note: This is similar to `getaddrinfo` in POSIX
+        ///
+        /// When successful, the contents of the output buffer consist of a sequence of
+        /// IPv4 and/or IPv6 addresses. Each address entry consists of a addr_t object.
+        /// This function fills the output buffer as much as possible, potentially
+        /// truncating the last address entry.
+        pub fn sock_resolve(
+            arg0: i32,
+            arg1: i32,
+            arg2: i32,
+            arg3: i32,
+            arg4: i32,
+            arg5: i32,
+            arg6: i32,
+        ) -> i32;
     }
 }
