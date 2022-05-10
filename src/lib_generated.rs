@@ -503,6 +503,7 @@ pub const RIGHTS_SOCK_RECV_FROM: Rights = 1 << 37;
 /// Send datagram on a socket
 pub const RIGHTS_SOCK_SEND_TO: Rights = 1 << 38;
 
+pub type BufArray<'a> = &'a [u8];
 #[repr(transparent)]
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Option(u8);
@@ -604,19 +605,6 @@ impl fmt::Debug for Bool {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone)]
-pub union OptionStringU {
-    pub none: u8,
-    pub some: &str,
-}
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct OptionString {
-    pub tag: u8,
-    pub u: OptionStringU,
-}
-
-#[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct Iovec {
     /// The address of the buffer to be filled.
@@ -634,7 +622,6 @@ pub struct Ciovec {
 }
 pub type IovecArray<'a> = &'a [Iovec];
 pub type CiovecArray<'a> = &'a [Ciovec];
-pub type BufArray<'a> = &'a [u8];
 pub type Filedelta = i64;
 #[repr(transparent)]
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
@@ -1154,104 +1141,6 @@ impl fmt::Debug for StdioMode {
             .field("message", &self.message())
             .finish()
     }
-}
-
-pub type ArgArray<'a> = &'a [&str];
-pub type PreopenArray<'a> = &'a [&str];
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct BusProcessLocal {
-    /// Name of the process to be spawned
-    pub name: &str,
-    /// Indicates if the process will chroot or not
-    pub chroot: Bool,
-    /// List of the arguments to pass the process
-    pub args: ArgArray<'_>,
-    /// List of the preopens for this process
-    pub preopen: PreopenArray<'_>,
-    /// How will stdin be handled
-    pub stdin: StdioMode,
-    /// How will stdout be handled
-    pub stdout: StdioMode,
-    /// How will stderr be handled
-    pub stderr: StdioMode,
-    /// Working directory when this process will
-    /// start (zero indicates the current directory)
-    pub working_dir: OptionString,
-}
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct BusProcessRemote {
-    /// Name of the process to be spawned
-    pub name: &str,
-    /// Indicates if the process will chroot or not
-    pub chroot: Bool,
-    /// List of the arguments to pass the process
-    pub args: ArgArray<'_>,
-    /// List of the preopens for this process
-    pub preopen: PreopenArray<'_>,
-    /// Working directory when this process will
-    /// start (zero indicates the current directory)
-    pub working_dir: &str,
-    /// How will stdin be handled
-    pub stdin: StdioMode,
-    /// How will stdout be handled
-    pub stdout: StdioMode,
-    /// How will stderr be handled
-    pub stderr: StdioMode,
-    /// Instance identifier where this process will be spawned
-    pub instance: &str,
-    /// Acceess token used to authenticate with the instance
-    pub token: OptionString,
-}
-#[repr(transparent)]
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub struct BusProcessType(u8);
-/// The bus process will be spawned locally
-pub const BUS_PROCESS_TYPE_LOCAL: BusProcessType = BusProcessType(0);
-/// The bus process will be spawned on a remote instance
-pub const BUS_PROCESS_TYPE_REMOTE: BusProcessType = BusProcessType(1);
-impl BusProcessType {
-    pub const fn raw(&self) -> u8 {
-        self.0
-    }
-
-    pub fn name(&self) -> &'static str {
-        match self.0 {
-            0 => "LOCAL",
-            1 => "REMOTE",
-            _ => unsafe { core::hint::unreachable_unchecked() },
-        }
-    }
-    pub fn message(&self) -> &'static str {
-        match self.0 {
-            0 => "The bus process will be spawned locally",
-            1 => "The bus process will be spawned on a remote instance",
-            _ => unsafe { core::hint::unreachable_unchecked() },
-        }
-    }
-}
-impl fmt::Debug for BusProcessType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("BusProcessType")
-            .field("code", &self.0)
-            .field("name", &self.name())
-            .field("message", &self.message())
-            .finish()
-    }
-}
-
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub union BusProcessU {
-    pub local: BusProcessLocal,
-    pub remote: BusProcessRemote,
-}
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct BusProcess {
-    pub tag: u8,
-    pub u: BusProcessU,
 }
 
 #[repr(C)]
@@ -1895,21 +1784,12 @@ impl fmt::Debug for AddressFamily {
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
-pub struct HttpHeader {
-    /// Header name
-    pub key: &str,
-    /// Header value
-    pub val: &str,
-}
-#[repr(C)]
-#[derive(Copy, Clone, Debug)]
 pub struct HttpHeaderSizes {
     /// Header name length
     pub key_len: Size,
     /// Header value length
     pub val_len: Size,
 }
-pub type HttpHeaderArray<'a> = &'a [HttpHeader];
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct HttpHandles {
@@ -1917,6 +1797,9 @@ pub struct HttpHandles {
     pub request: Fd,
     /// File handle used to receive the response data
     pub response: Fd,
+    /// File handle used to read the response headers
+    /// (entries are separated by line feeds)
+    pub headers: Fd,
 }
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -2887,6 +2770,38 @@ pub unsafe fn tty_rect(rect: *mut Rect) -> Result<(), Errno> {
     }
 }
 
+/// Returns the current working directory
+///
+/// ## Parameters
+///
+/// * `path` - The buffer where current directory is stored
+///
+/// ## Return
+///
+/// Number of bytes returned in the path buffer
+pub unsafe fn pwd_get(path: *mut u8, path_len: Size) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
+    let ret =
+        wasix_snapshot_preview1::pwd_get(path as i32, path_len as i32, rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Sets the current working directory
+///
+/// ## Parameters
+///
+/// * `path` - Path to change the current working directory to
+pub unsafe fn pwd_set(path: &str) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::pwd_set(path.as_ptr() as i32, path.len() as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
 /// Creates a new thread by spawning a new process that shares the same
 /// memory address space, file handles and main event loops
 ///
@@ -2943,14 +2858,107 @@ pub unsafe fn thread_exit(rval: Exitcode) {
 ///
 /// ## Parameters
 ///
-/// * `desc` - Descriptor of the process to be spawned
+/// * `name` - Name of the process to be spawned
+/// * `chroot` - Indicates if the process will chroot or not
+/// * `args` - List of the arguments to pass the process
+///   (entries are separated by line feeds)
+/// * `preopen` - List of the preopens for this process
+///   (entries are separated by line feeds)
+/// * `stdin` - How will stdin be handled
+/// * `stdout` - How will stdout be handled
+/// * `stderr` - How will stderr be handled
+/// * `working_dir` - Working directory where this process should run
+///   (passing '.' will use the current directory)
 ///
 /// ## Return
 ///
 /// Returns a bus process id that can be used to invoke calls
-pub unsafe fn bus_spawn(desc: BusProcess) -> Result<BusHandles, BusError> {
+pub unsafe fn bus_spawn_local(
+    name: &str,
+    chroot: Bool,
+    args: &str,
+    preopen: &str,
+    stdin: StdioMode,
+    stdout: StdioMode,
+    stderr: StdioMode,
+    working_dir: &str,
+) -> Result<BusHandles, BusError> {
     let mut rp0 = MaybeUninit::<BusHandles>::uninit();
-    let ret = wasix_snapshot_preview1::bus_spawn(&desc as *const _ as i32, rp0.as_mut_ptr() as i32);
+    let ret = wasix_snapshot_preview1::bus_spawn_local(
+        name.as_ptr() as i32,
+        name.len() as i32,
+        chroot.0 as i32,
+        args.as_ptr() as i32,
+        args.len() as i32,
+        preopen.as_ptr() as i32,
+        preopen.len() as i32,
+        stdin.0 as i32,
+        stdout.0 as i32,
+        stderr.0 as i32,
+        working_dir.as_ptr() as i32,
+        working_dir.len() as i32,
+        rp0.as_mut_ptr() as i32,
+    );
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const BusHandles)),
+        _ => Err(BusError(ret as u32)),
+    }
+}
+
+/// Spawns a new bus process for a particular web WebAssembly
+/// binary that is referenced by its process name on a remote instance
+///
+/// ## Parameters
+///
+/// * `name` - Name of the process to be spawned
+/// * `chroot` - Indicates if the process will chroot or not
+/// * `args` - List of the arguments to pass the process
+///   (entries are separated by line feeds)
+/// * `preopen` - List of the preopens for this process
+///   (entries are separated by line feeds)
+/// * `working_dir` - Working directory where this process should run
+///   (passing '.' will use the current directory)
+/// * `stdin` - How will stdin be handled
+/// * `stdout` - How will stdout be handled
+/// * `stderr` - How will stderr be handled
+/// * `instance` - Instance identifier where this process will be spawned
+/// * `token` - Acceess token used to authenticate with the instance
+///
+/// ## Return
+///
+/// Returns a bus process id that can be used to invoke calls
+pub unsafe fn bus_spawn_remote(
+    name: &str,
+    chroot: Bool,
+    args: &str,
+    preopen: &str,
+    working_dir: &str,
+    stdin: StdioMode,
+    stdout: StdioMode,
+    stderr: StdioMode,
+    instance: &str,
+    token: &str,
+) -> Result<BusHandles, BusError> {
+    let mut rp0 = MaybeUninit::<BusHandles>::uninit();
+    let ret = wasix_snapshot_preview1::bus_spawn_remote(
+        name.as_ptr() as i32,
+        name.len() as i32,
+        chroot.0 as i32,
+        args.as_ptr() as i32,
+        args.len() as i32,
+        preopen.as_ptr() as i32,
+        preopen.len() as i32,
+        working_dir.as_ptr() as i32,
+        working_dir.len() as i32,
+        stdin.0 as i32,
+        stdout.0 as i32,
+        stderr.0 as i32,
+        instance.as_ptr() as i32,
+        instance.len() as i32,
+        token.as_ptr() as i32,
+        token.len() as i32,
+        rp0.as_mut_ptr() as i32,
+    );
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const BusHandles)),
         _ => Err(BusError(ret as u32)),
@@ -3193,8 +3201,8 @@ pub unsafe fn ws_connect(url: &str) -> Result<Fd, Errno> {
 ///
 /// * `url` - URL of the HTTP resource to connect to
 /// * `method` - HTTP method to be invoked
-/// * `body` - HTTP body to be sent with this request
 /// * `headers` - HTTP headers to attach to the request
+///   (headers seperated by lines)
 /// * `gzip` - Should the request body be compressed
 ///
 /// ## Return
@@ -3204,8 +3212,7 @@ pub unsafe fn ws_connect(url: &str) -> Result<Fd, Errno> {
 pub unsafe fn http_request(
     url: &str,
     method: &str,
-    body: BufArray<'_>,
-    headers: HttpHeaderArray<'_>,
+    headers: &str,
     gzip: Bool,
 ) -> Result<HttpHandles, Errno> {
     let mut rp0 = MaybeUninit::<HttpHandles>::uninit();
@@ -3214,8 +3221,6 @@ pub unsafe fn http_request(
         url.len() as i32,
         method.as_ptr() as i32,
         method.len() as i32,
-        body.as_ptr() as i32,
-        body.len() as i32,
         headers.as_ptr() as i32,
         headers.len() as i32,
         gzip.0 as i32,
@@ -3257,38 +3262,6 @@ pub unsafe fn http_status(
     );
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
-        _ => Err(Errno(ret as u16)),
-    }
-}
-
-/// Returns the next HTTP response header received from
-/// the http server
-///
-/// ## Parameters
-///
-/// * `fd` - Handle of the HTTP request
-/// * `key` - Buffer that will hold the header name
-/// * `val` - Buffer that will hold the header value
-pub unsafe fn http_header(
-    fd: Fd,
-    key: *mut u8,
-    key_len: Size,
-    val: *mut u8,
-    val_len: Size,
-) -> Result<HttpHeaderSizes, Errno> {
-    let mut rp0 = MaybeUninit::<HttpHeaderSizes>::uninit();
-    let ret = wasix_snapshot_preview1::http_header(
-        fd as i32,
-        key as i32,
-        key_len as i32,
-        val as i32,
-        val_len as i32,
-        rp0.as_mut_ptr() as i32,
-    );
-    match ret {
-        0 => Ok(core::ptr::read(
-            rp0.as_mut_ptr() as i32 as *const HttpHeaderSizes
-        )),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -3915,6 +3888,10 @@ pub mod wasix_snapshot_preview1 {
         pub fn tty_stderr(arg0: i32) -> i32;
         /// Retrieves the rect of the TTY display
         pub fn tty_rect(arg0: i32) -> i32;
+        /// Returns the current working directory
+        pub fn pwd_get(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        /// Sets the current working directory
+        pub fn pwd_set(arg0: i32, arg1: i32) -> i32;
         /// Creates a new thread by spawning a new process that shares the same
         /// memory address space, file handles and main event loops
         ///
@@ -3933,7 +3910,42 @@ pub mod wasix_snapshot_preview1 {
         pub fn thread_exit(arg0: i32) -> !;
         /// Spawns a new bus process for a particular web WebAssembly
         /// binary that is referenced by its process name.
-        pub fn bus_spawn(arg0: i32, arg1: i32) -> i32;
+        pub fn bus_spawn_local(
+            arg0: i32,
+            arg1: i32,
+            arg2: i32,
+            arg3: i32,
+            arg4: i32,
+            arg5: i32,
+            arg6: i32,
+            arg7: i32,
+            arg8: i32,
+            arg9: i32,
+            arg10: i32,
+            arg11: i32,
+            arg12: i32,
+        ) -> i32;
+        /// Spawns a new bus process for a particular web WebAssembly
+        /// binary that is referenced by its process name on a remote instance
+        pub fn bus_spawn_remote(
+            arg0: i32,
+            arg1: i32,
+            arg2: i32,
+            arg3: i32,
+            arg4: i32,
+            arg5: i32,
+            arg6: i32,
+            arg7: i32,
+            arg8: i32,
+            arg9: i32,
+            arg10: i32,
+            arg11: i32,
+            arg12: i32,
+            arg13: i32,
+            arg14: i32,
+            arg15: i32,
+            arg16: i32,
+        ) -> i32;
         /// Closes a bus process and releases all associated resources
         pub fn bus_close(arg0: i32) -> i32;
         /// Invokes a call within a running bus process.
@@ -3990,15 +4002,9 @@ pub mod wasix_snapshot_preview1 {
             arg5: i32,
             arg6: i32,
             arg7: i32,
-            arg8: i32,
-            arg9: i32,
         ) -> i32;
         /// Retrieves the status of a HTTP request
         pub fn http_status(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32) -> i32;
-        /// Returns the next HTTP response header received from
-        /// the http server
-        pub fn http_header(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32, arg5: i32)
-            -> i32;
         /// Shut down socket send and receive channels.
         /// Note: This is similar to `shutdown` in POSIX.
         pub fn sock_shutdown(arg0: i32, arg1: i32) -> i32;

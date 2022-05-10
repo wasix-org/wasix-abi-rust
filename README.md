@@ -73,7 +73,7 @@ The `src/lib_generated.rs` file can be re-generated with the following
 command:
 
 ```
-cargo run -p witx-bindgen -- crates/witx-bindgen/WASI/phases/snapshot/witx/wasi_snapshot_preview1.witx > src/lib_generated.rs
+cargo run -p witx-bindgen -- crates/witx-bindgen/WASI/phases/snapshot/witx/wasix_snapshot_preview1.witx > src/lib_generated.rs
 ```
 
 Note that this uses the WASI standard repository as a submodule. If you do not
