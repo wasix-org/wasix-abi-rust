@@ -503,7 +503,119 @@ pub const RIGHTS_SOCK_RECV_FROM: Rights = 1 << 37;
 /// Send datagram on a socket
 pub const RIGHTS_SOCK_SEND_TO: Rights = 1 << 38;
 
+#[repr(transparent)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct Option(u8);
+pub const OPTION_NONE: Option = Option(0);
+pub const OPTION_SOME: Option = Option(1);
+impl Option {
+    pub const fn raw(&self) -> u8 {
+        self.0
+    }
+
+    pub fn name(&self) -> &'static str {
+        match self.0 {
+            0 => "NONE",
+            1 => "SOME",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+    pub fn message(&self) -> &'static str {
+        match self.0 {
+            0 => "",
+            1 => "",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+}
+impl fmt::Debug for Option {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Option")
+            .field("code", &self.0)
+            .field("name", &self.name())
+            .field("message", &self.message())
+            .finish()
+    }
+}
+
 pub type Fd = u32;
+pub type Pid = u32;
+pub type Bid = u32;
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union OptionBidU {
+    pub none: u8,
+    pub some: Bid,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct OptionBid {
+    pub tag: u8,
+    pub u: OptionBidU,
+}
+
+pub type Cid = u32;
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union OptionCidU {
+    pub none: u8,
+    pub some: Cid,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct OptionCid {
+    pub tag: u8,
+    pub u: OptionCidU,
+}
+
+#[repr(transparent)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct Bool(u8);
+pub const BOOL_TRUE: Bool = Bool(0);
+pub const BOOL_FALSE: Bool = Bool(1);
+impl Bool {
+    pub const fn raw(&self) -> u8 {
+        self.0
+    }
+
+    pub fn name(&self) -> &'static str {
+        match self.0 {
+            0 => "TRUE",
+            1 => "FALSE",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+    pub fn message(&self) -> &'static str {
+        match self.0 {
+            0 => "",
+            1 => "",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+}
+impl fmt::Debug for Bool {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Bool")
+            .field("code", &self.0)
+            .field("name", &self.name())
+            .field("message", &self.message())
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union OptionStringU {
+    pub none: u8,
+    pub some: &str,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct OptionString {
+    pub tag: u8,
+    pub u: OptionStringU,
+}
+
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct Iovec {
@@ -522,6 +634,7 @@ pub struct Ciovec {
 }
 pub type IovecArray<'a> = &'a [Iovec];
 pub type CiovecArray<'a> = &'a [Ciovec];
+pub type BufArray<'a> = &'a [u8];
 pub type Filedelta = i64;
 #[repr(transparent)]
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
@@ -878,6 +991,404 @@ pub struct Subscription {
     pub u: SubscriptionU,
 }
 pub type Exitcode = u32;
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct Rect {
+    /// Number of columns
+    pub cols: u32,
+    /// Number of rows
+    pub rows: u32,
+    /// Width of the screen in pixels
+    pub width: u32,
+    /// Height of the screen in pixels
+    pub height: u32,
+}
+#[repr(transparent)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct BusError(u32);
+/// operation successful
+pub const BUS_ERROR_SUCCESS: BusError = BusError(0);
+/// there was an error while serializing the request or response.
+pub const BUS_ERROR_SERIALIZATION: BusError = BusError(1);
+/// there was an error while deserializing the request or response.
+pub const BUS_ERROR_DESERIALIZATION: BusError = BusError(2);
+/// the specified WAPM module does not exist.
+pub const BUS_ERROR_INVALID_WAPM: BusError = BusError(3);
+/// failed to fetch the WAPM module.
+pub const BUS_ERROR_FETCH_WAPM: BusError = BusError(4);
+/// failed to compile the WAPM module.
+pub const BUS_ERROR_COMPILE_ERROR: BusError = BusError(5);
+/// the ABI is invalid for cross module calls.
+pub const BUS_ERROR_INVALID_ABI: BusError = BusError(6);
+/// the request has been aborted.
+pub const BUS_ERROR_ABORTED: BusError = BusError(7);
+/// the handle is not valid.
+pub const BUS_ERROR_INVALID_HANDLE: BusError = BusError(8);
+pub const BUS_ERROR_INVALID_TOPIC: BusError = BusError(9);
+/// some mandatory callbacks were not registered.
+pub const BUS_ERROR_MISSING_CALLBACK: BusError = BusError(10);
+/// this operation is not supported on this platform.
+pub const BUS_ERROR_UNSUPPORTED: BusError = BusError(11);
+/// invalid input was supplied in the call resulting in a bad request.
+pub const BUS_ERROR_BAD_REQUEST: BusError = BusError(12);
+/// access denied
+pub const BUS_ERROR_ACCESS_DENIED: BusError = BusError(13);
+/// an internal failure has occured
+pub const BUS_ERROR_INTERNAL_FAILURE: BusError = BusError(14);
+/// memory allocation has failed
+pub const BUS_ERROR_MEMORY_ALLOCATION_FAILED: BusError = BusError(15);
+/// bus invocation has failed
+pub const BUS_ERROR_BUS_INVOCATION_FAILED: BusError = BusError(16);
+/// result already consumed
+pub const BUS_ERROR_ALREADY_CONSUMED: BusError = BusError(17);
+/// memory access violation
+pub const BUS_ERROR_MEMORY_ACCESS_VIOLATION: BusError = BusError(18);
+/// unknown error
+pub const BUS_ERROR_UNKNOWN_ERROR: BusError = BusError(19);
+impl BusError {
+    pub const fn raw(&self) -> u32 {
+        self.0
+    }
+
+    pub fn name(&self) -> &'static str {
+        match self.0 {
+            0 => "SUCCESS",
+            1 => "SERIALIZATION",
+            2 => "DESERIALIZATION",
+            3 => "INVALID_WAPM",
+            4 => "FETCH_WAPM",
+            5 => "COMPILE_ERROR",
+            6 => "INVALID_ABI",
+            7 => "ABORTED",
+            8 => "INVALID_HANDLE",
+            9 => "INVALID_TOPIC",
+            10 => "MISSING_CALLBACK",
+            11 => "UNSUPPORTED",
+            12 => "BAD_REQUEST",
+            13 => "ACCESS_DENIED",
+            14 => "INTERNAL_FAILURE",
+            15 => "MEMORY_ALLOCATION_FAILED",
+            16 => "BUS_INVOCATION_FAILED",
+            17 => "ALREADY_CONSUMED",
+            18 => "MEMORY_ACCESS_VIOLATION",
+            19 => "UNKNOWN_ERROR",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+    pub fn message(&self) -> &'static str {
+        match self.0 {
+            0 => "operation successful",
+            1 => "there was an error while serializing the request or response.",
+            2 => "there was an error while deserializing the request or response.",
+            3 => "the specified WAPM module does not exist.",
+            4 => "failed to fetch the WAPM module.",
+            5 => "failed to compile the WAPM module.",
+            6 => "the ABI is invalid for cross module calls.",
+            7 => "the request has been aborted.",
+            8 => "the handle is not valid.",
+            9 => "",
+            10 => "some mandatory callbacks were not registered.",
+            11 => "this operation is not supported on this platform.",
+            12 => "invalid input was supplied in the call resulting in a bad request.",
+            13 => "access denied",
+            14 => "an internal failure has occured",
+            15 => "memory allocation has failed",
+            16 => "bus invocation has failed",
+            17 => "result already consumed",
+            18 => "memory access violation",
+            19 => "unknown error",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+}
+impl fmt::Debug for BusError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("BusError")
+            .field("code", &self.0)
+            .field("name", &self.name())
+            .field("message", &self.message())
+            .finish()
+    }
+}
+
+#[repr(transparent)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct StdioMode(u8);
+/// The stdio will be piped
+pub const STDIO_MODE_PIPED: StdioMode = StdioMode(0);
+/// The stdio will inherit from its parent
+pub const STDIO_MODE_INHERIT: StdioMode = StdioMode(1);
+/// The stdio will be dumped to null
+pub const STDIO_MODE_NULL: StdioMode = StdioMode(2);
+/// The stdio will be written to the log file
+pub const STDIO_MODE_LOG: StdioMode = StdioMode(3);
+impl StdioMode {
+    pub const fn raw(&self) -> u8 {
+        self.0
+    }
+
+    pub fn name(&self) -> &'static str {
+        match self.0 {
+            0 => "PIPED",
+            1 => "INHERIT",
+            2 => "NULL",
+            3 => "LOG",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+    pub fn message(&self) -> &'static str {
+        match self.0 {
+            0 => "The stdio will be piped",
+            1 => "The stdio will inherit from its parent",
+            2 => "The stdio will be dumped to null",
+            3 => "The stdio will be written to the log file",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+}
+impl fmt::Debug for StdioMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("StdioMode")
+            .field("code", &self.0)
+            .field("name", &self.name())
+            .field("message", &self.message())
+            .finish()
+    }
+}
+
+pub type ArgArray<'a> = &'a [&str];
+pub type PreopenArray<'a> = &'a [&str];
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct BusProcessLocal {
+    /// Name of the process to be spawned
+    pub name: &str,
+    /// Indicates if the process will chroot or not
+    pub chroot: Bool,
+    /// List of the arguments to pass the process
+    pub args: ArgArray<'_>,
+    /// List of the preopens for this process
+    pub preopen: PreopenArray<'_>,
+    /// How will stdin be handled
+    pub stdin: StdioMode,
+    /// How will stdout be handled
+    pub stdout: StdioMode,
+    /// How will stderr be handled
+    pub stderr: StdioMode,
+    /// Working directory when this process will
+    /// start (zero indicates the current directory)
+    pub working_dir: OptionString,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct BusProcessRemote {
+    /// Name of the process to be spawned
+    pub name: &str,
+    /// Indicates if the process will chroot or not
+    pub chroot: Bool,
+    /// List of the arguments to pass the process
+    pub args: ArgArray<'_>,
+    /// List of the preopens for this process
+    pub preopen: PreopenArray<'_>,
+    /// Working directory when this process will
+    /// start (zero indicates the current directory)
+    pub working_dir: &str,
+    /// How will stdin be handled
+    pub stdin: StdioMode,
+    /// How will stdout be handled
+    pub stdout: StdioMode,
+    /// How will stderr be handled
+    pub stderr: StdioMode,
+    /// Instance identifier where this process will be spawned
+    pub instance: &str,
+    /// Acceess token used to authenticate with the instance
+    pub token: OptionString,
+}
+#[repr(transparent)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct BusProcessType(u8);
+/// The bus process will be spawned locally
+pub const BUS_PROCESS_TYPE_LOCAL: BusProcessType = BusProcessType(0);
+/// The bus process will be spawned on a remote instance
+pub const BUS_PROCESS_TYPE_REMOTE: BusProcessType = BusProcessType(1);
+impl BusProcessType {
+    pub const fn raw(&self) -> u8 {
+        self.0
+    }
+
+    pub fn name(&self) -> &'static str {
+        match self.0 {
+            0 => "LOCAL",
+            1 => "REMOTE",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+    pub fn message(&self) -> &'static str {
+        match self.0 {
+            0 => "The bus process will be spawned locally",
+            1 => "The bus process will be spawned on a remote instance",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+}
+impl fmt::Debug for BusProcessType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("BusProcessType")
+            .field("code", &self.0)
+            .field("name", &self.name())
+            .field("message", &self.message())
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union BusProcessU {
+    pub local: BusProcessLocal,
+    pub remote: BusProcessRemote,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct BusProcess {
+    pub tag: u8,
+    pub u: BusProcessU,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct BusHandles {
+    /// Handle of the bus process
+    pub handle: Bid,
+    /// File handle for STDIN
+    pub stdin: Fd,
+    /// File handle for STDOUT
+    pub stdout: Fd,
+    /// File handle for STDERR
+    pub stderr: Fd,
+}
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct BusEventExit {
+    /// Exit code of the bus process that has exited
+    pub rval: Exitcode,
+}
+#[repr(transparent)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct BusDataType(u8);
+/// The bus process has been invoked by a caller
+pub const BUS_DATA_TYPE_CALL: BusDataType = BusDataType(0);
+/// Callback with some out-of-band data to the caller
+pub const BUS_DATA_TYPE_CALLBACK: BusDataType = BusDataType(1);
+/// Call within the bus process has returned
+pub const BUS_DATA_TYPE_REPLY: BusDataType = BusDataType(2);
+impl BusDataType {
+    pub const fn raw(&self) -> u8 {
+        self.0
+    }
+
+    pub fn name(&self) -> &'static str {
+        match self.0 {
+            0 => "CALL",
+            1 => "CALLBACK",
+            2 => "REPLY",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+    pub fn message(&self) -> &'static str {
+        match self.0 {
+            0 => "The bus process has been invoked by a caller",
+            1 => "Callback with some out-of-band data to the caller",
+            2 => "Call within the bus process has returned",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+}
+impl fmt::Debug for BusDataType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("BusDataType")
+            .field("code", &self.0)
+            .field("name", &self.name())
+            .field("message", &self.message())
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct BusEventData {
+    /// Type of event data that is held here
+    pub ty: BusDataType,
+    /// Handle of the call that has made a callback
+    pub cid: Cid,
+    /// The topic that describes the event that happened
+    pub topic_len: Size,
+    /// The buffer where event data is stored
+    pub buf_len: Size,
+}
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct BusEventFault {
+    /// Handle of the call where this event occurs for
+    pub cid: Cid,
+    /// Fault that was raised against this call
+    pub fault: BusError,
+}
+#[repr(transparent)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct BusEventType(u8);
+/// The bus process has exited
+pub const BUS_EVENT_TYPE_EXIT: BusEventType = BusEventType(0);
+/// The bus data recevied for a specific event
+pub const BUS_EVENT_TYPE_DATA: BusEventType = BusEventType(1);
+/// Fault has occured on one of the calls
+pub const BUS_EVENT_TYPE_FAULT: BusEventType = BusEventType(2);
+impl BusEventType {
+    pub const fn raw(&self) -> u8 {
+        self.0
+    }
+
+    pub fn name(&self) -> &'static str {
+        match self.0 {
+            0 => "EXIT",
+            1 => "DATA",
+            2 => "FAULT",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+    pub fn message(&self) -> &'static str {
+        match self.0 {
+            0 => "The bus process has exited",
+            1 => "The bus data recevied for a specific event",
+            2 => "Fault has occured on one of the calls",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+}
+impl fmt::Debug for BusEventType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("BusEventType")
+            .field("code", &self.0)
+            .field("name", &self.name())
+            .field("message", &self.message())
+            .finish()
+    }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union BusEventU {
+    pub exit: BusEventExit,
+    pub data: BusEventData,
+    pub fault: BusEventFault,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct BusEvent {
+    pub tag: u8,
+    pub u: BusEventU,
+}
+
+pub type BusEventArray<'a> = &'a [BusEvent];
 #[repr(transparent)]
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Signal(u8);
@@ -1202,6 +1713,51 @@ impl fmt::Debug for SockType {
     }
 }
 
+#[repr(transparent)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct SockStatus(u8);
+/// The socket is still opening
+pub const SOCK_STATUS_OPENING: SockStatus = SockStatus(0);
+/// The socket has fully opened
+pub const SOCK_STATUS_OPENED: SockStatus = SockStatus(1);
+/// The socket has closed
+pub const SOCK_STATUS_CLOSED: SockStatus = SockStatus(2);
+/// The socket has failed
+pub const SOCK_STATUS_FAILED: SockStatus = SockStatus(3);
+impl SockStatus {
+    pub const fn raw(&self) -> u8 {
+        self.0
+    }
+
+    pub fn name(&self) -> &'static str {
+        match self.0 {
+            0 => "OPENING",
+            1 => "OPENED",
+            2 => "CLOSED",
+            3 => "FAILED",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+    pub fn message(&self) -> &'static str {
+        match self.0 {
+            0 => "The socket is still opening",
+            1 => "The socket has fully opened",
+            2 => "The socket has closed",
+            3 => "The socket has failed",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+}
+impl fmt::Debug for SockStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SockStatus")
+            .field("code", &self.0)
+            .field("name", &self.name())
+            .field("message", &self.message())
+            .finish()
+    }
+}
+
 pub type IpPort = u16;
 #[repr(transparent)]
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
@@ -1274,17 +1830,32 @@ pub struct AddrIp6Port {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub union AddrU {
+pub union AddrIpU {
+    pub ip4: AddrIp4,
+    pub ip6: AddrIp6,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct AddrIp {
+    pub tag: u8,
+    pub u: AddrIpU,
+}
+
+pub type AddrIpArray<'a> = &'a [AddrIp];
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union AddrPortU {
     pub ip4: AddrIp4Port,
     pub ip6: AddrIp6Port,
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub struct Addr {
+pub struct AddrPort {
     pub tag: u8,
-    pub u: AddrU,
+    pub u: AddrPortU,
 }
 
+pub type AddrPortArray<'a> = &'a [AddrPort];
 #[repr(transparent)]
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct AddressFamily(u8);
@@ -1322,6 +1893,41 @@ impl fmt::Debug for AddressFamily {
     }
 }
 
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct HttpHeader {
+    /// Header name
+    pub key: &str,
+    /// Header value
+    pub val: &str,
+}
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct HttpHeaderSizes {
+    /// Header name length
+    pub key_len: Size,
+    /// Header value length
+    pub val_len: Size,
+}
+pub type HttpHeaderArray<'a> = &'a [HttpHeader];
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct HttpHandles {
+    /// File handle used to write the request data
+    pub request: Fd,
+    /// File handle used to receive the response data
+    pub response: Fd,
+}
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct HttpStatus {
+    pub ok: Bool,
+    pub redirected: Bool,
+    /// Size of the response
+    pub size: Size,
+    /// HTTP status code for this response
+    pub status: u16,
+}
 pub type Siflags = u16;
 pub type Sdflags = u8;
 /// Disables further receive operations.
@@ -1384,7 +1990,7 @@ pub struct Prestat {
 /// The size of the array should match that returned by `args_sizes_get`.
 /// Each argument is expected to be `\0` terminated.
 pub unsafe fn args_get(argv: *mut *mut u8, argv_buf: *mut u8) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::args_get(argv as i32, argv_buf as i32);
+    let ret = wasix_snapshot_preview1::args_get(argv as i32, argv_buf as i32);
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
@@ -1401,7 +2007,7 @@ pub unsafe fn args_sizes_get() -> Result<(Size, Size), Errno> {
     let mut rp0 = MaybeUninit::<Size>::uninit();
     let mut rp1 = MaybeUninit::<Size>::uninit();
     let ret =
-        wasi_snapshot_preview1::args_sizes_get(rp0.as_mut_ptr() as i32, rp1.as_mut_ptr() as i32);
+        wasix_snapshot_preview1::args_sizes_get(rp0.as_mut_ptr() as i32, rp1.as_mut_ptr() as i32);
     match ret {
         0 => Ok((
             core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size),
@@ -1415,7 +2021,7 @@ pub unsafe fn args_sizes_get() -> Result<(Size, Size), Errno> {
 /// The sizes of the buffers should match that returned by `environ_sizes_get`.
 /// Key/value pairs are expected to be joined with `=`s, and terminated with `\0`s.
 pub unsafe fn environ_get(environ: *mut *mut u8, environ_buf: *mut u8) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::environ_get(environ as i32, environ_buf as i32);
+    let ret = wasix_snapshot_preview1::environ_get(environ as i32, environ_buf as i32);
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
@@ -1431,8 +2037,10 @@ pub unsafe fn environ_get(environ: *mut *mut u8, environ_buf: *mut u8) -> Result
 pub unsafe fn environ_sizes_get() -> Result<(Size, Size), Errno> {
     let mut rp0 = MaybeUninit::<Size>::uninit();
     let mut rp1 = MaybeUninit::<Size>::uninit();
-    let ret =
-        wasi_snapshot_preview1::environ_sizes_get(rp0.as_mut_ptr() as i32, rp1.as_mut_ptr() as i32);
+    let ret = wasix_snapshot_preview1::environ_sizes_get(
+        rp0.as_mut_ptr() as i32,
+        rp1.as_mut_ptr() as i32,
+    );
     match ret {
         0 => Ok((
             core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size),
@@ -1456,7 +2064,7 @@ pub unsafe fn environ_sizes_get() -> Result<(Size, Size), Errno> {
 /// The resolution of the clock, or an error if one happened.
 pub unsafe fn clock_res_get(id: Clockid) -> Result<Timestamp, Errno> {
     let mut rp0 = MaybeUninit::<Timestamp>::uninit();
-    let ret = wasi_snapshot_preview1::clock_res_get(id.0 as i32, rp0.as_mut_ptr() as i32);
+    let ret = wasix_snapshot_preview1::clock_res_get(id.0 as i32, rp0.as_mut_ptr() as i32);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Timestamp)),
         _ => Err(Errno(ret as u16)),
@@ -1476,7 +2084,7 @@ pub unsafe fn clock_res_get(id: Clockid) -> Result<Timestamp, Errno> {
 /// The time value of the clock.
 pub unsafe fn clock_time_get(id: Clockid, precision: Timestamp) -> Result<Timestamp, Errno> {
     let mut rp0 = MaybeUninit::<Timestamp>::uninit();
-    let ret = wasi_snapshot_preview1::clock_time_get(
+    let ret = wasix_snapshot_preview1::clock_time_get(
         id.0 as i32,
         precision as i64,
         rp0.as_mut_ptr() as i32,
@@ -1502,7 +2110,7 @@ pub unsafe fn fd_advise(
     advice: Advice,
 ) -> Result<(), Errno> {
     let ret =
-        wasi_snapshot_preview1::fd_advise(fd as i32, offset as i64, len as i64, advice.0 as i32);
+        wasix_snapshot_preview1::fd_advise(fd as i32, offset as i64, len as i64, advice.0 as i32);
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
@@ -1517,7 +2125,7 @@ pub unsafe fn fd_advise(
 /// * `offset` - The offset at which to start the allocation.
 /// * `len` - The length of the area that is allocated.
 pub unsafe fn fd_allocate(fd: Fd, offset: Filesize, len: Filesize) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::fd_allocate(fd as i32, offset as i64, len as i64);
+    let ret = wasix_snapshot_preview1::fd_allocate(fd as i32, offset as i64, len as i64);
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
@@ -1527,7 +2135,7 @@ pub unsafe fn fd_allocate(fd: Fd, offset: Filesize, len: Filesize) -> Result<(),
 /// Close a file descriptor.
 /// Note: This is similar to `close` in POSIX.
 pub unsafe fn fd_close(fd: Fd) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::fd_close(fd as i32);
+    let ret = wasix_snapshot_preview1::fd_close(fd as i32);
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
@@ -1537,7 +2145,7 @@ pub unsafe fn fd_close(fd: Fd) -> Result<(), Errno> {
 /// Synchronize the data of a file to disk.
 /// Note: This is similar to `fdatasync` in POSIX.
 pub unsafe fn fd_datasync(fd: Fd) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::fd_datasync(fd as i32);
+    let ret = wasix_snapshot_preview1::fd_datasync(fd as i32);
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
@@ -1552,7 +2160,7 @@ pub unsafe fn fd_datasync(fd: Fd) -> Result<(), Errno> {
 /// The buffer where the file descriptor's attributes are stored.
 pub unsafe fn fd_fdstat_get(fd: Fd) -> Result<Fdstat, Errno> {
     let mut rp0 = MaybeUninit::<Fdstat>::uninit();
-    let ret = wasi_snapshot_preview1::fd_fdstat_get(fd as i32, rp0.as_mut_ptr() as i32);
+    let ret = wasix_snapshot_preview1::fd_fdstat_get(fd as i32, rp0.as_mut_ptr() as i32);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fdstat)),
         _ => Err(Errno(ret as u16)),
@@ -1566,7 +2174,7 @@ pub unsafe fn fd_fdstat_get(fd: Fd) -> Result<Fdstat, Errno> {
 ///
 /// * `flags` - The desired values of the file descriptor flags.
 pub unsafe fn fd_fdstat_set_flags(fd: Fd, flags: Fdflags) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::fd_fdstat_set_flags(fd as i32, flags as i32);
+    let ret = wasix_snapshot_preview1::fd_fdstat_set_flags(fd as i32, flags as i32);
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
@@ -1584,7 +2192,7 @@ pub unsafe fn fd_fdstat_set_rights(
     fs_rights_base: Rights,
     fs_rights_inheriting: Rights,
 ) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::fd_fdstat_set_rights(
+    let ret = wasix_snapshot_preview1::fd_fdstat_set_rights(
         fd as i32,
         fs_rights_base as i64,
         fs_rights_inheriting as i64,
@@ -1602,7 +2210,7 @@ pub unsafe fn fd_fdstat_set_rights(
 /// The buffer where the file's attributes are stored.
 pub unsafe fn fd_filestat_get(fd: Fd) -> Result<Filestat, Errno> {
     let mut rp0 = MaybeUninit::<Filestat>::uninit();
-    let ret = wasi_snapshot_preview1::fd_filestat_get(fd as i32, rp0.as_mut_ptr() as i32);
+    let ret = wasix_snapshot_preview1::fd_filestat_get(fd as i32, rp0.as_mut_ptr() as i32);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Filestat)),
         _ => Err(Errno(ret as u16)),
@@ -1616,7 +2224,7 @@ pub unsafe fn fd_filestat_get(fd: Fd) -> Result<Filestat, Errno> {
 ///
 /// * `size` - The desired file size.
 pub unsafe fn fd_filestat_set_size(fd: Fd, size: Filesize) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::fd_filestat_set_size(fd as i32, size as i64);
+    let ret = wasix_snapshot_preview1::fd_filestat_set_size(fd as i32, size as i64);
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
@@ -1637,7 +2245,7 @@ pub unsafe fn fd_filestat_set_times(
     mtim: Timestamp,
     fst_flags: Fstflags,
 ) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::fd_filestat_set_times(
+    let ret = wasix_snapshot_preview1::fd_filestat_set_times(
         fd as i32,
         atim as i64,
         mtim as i64,
@@ -1662,7 +2270,7 @@ pub unsafe fn fd_filestat_set_times(
 /// The number of bytes read.
 pub unsafe fn fd_pread(fd: Fd, iovs: IovecArray<'_>, offset: Filesize) -> Result<Size, Errno> {
     let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasi_snapshot_preview1::fd_pread(
+    let ret = wasix_snapshot_preview1::fd_pread(
         fd as i32,
         iovs.as_ptr() as i32,
         iovs.len() as i32,
@@ -1682,7 +2290,7 @@ pub unsafe fn fd_pread(fd: Fd, iovs: IovecArray<'_>, offset: Filesize) -> Result
 /// The buffer where the description is stored.
 pub unsafe fn fd_prestat_get(fd: Fd) -> Result<Prestat, Errno> {
     let mut rp0 = MaybeUninit::<Prestat>::uninit();
-    let ret = wasi_snapshot_preview1::fd_prestat_get(fd as i32, rp0.as_mut_ptr() as i32);
+    let ret = wasix_snapshot_preview1::fd_prestat_get(fd as i32, rp0.as_mut_ptr() as i32);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Prestat)),
         _ => Err(Errno(ret as u16)),
@@ -1695,7 +2303,7 @@ pub unsafe fn fd_prestat_get(fd: Fd) -> Result<Prestat, Errno> {
 ///
 /// * `path` - A buffer into which to write the preopened directory name.
 pub unsafe fn fd_prestat_dir_name(fd: Fd, path: *mut u8, path_len: Size) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::fd_prestat_dir_name(fd as i32, path as i32, path_len as i32);
+    let ret = wasix_snapshot_preview1::fd_prestat_dir_name(fd as i32, path as i32, path_len as i32);
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
@@ -1715,7 +2323,7 @@ pub unsafe fn fd_prestat_dir_name(fd: Fd, path: *mut u8, path_len: Size) -> Resu
 /// The number of bytes written.
 pub unsafe fn fd_pwrite(fd: Fd, iovs: CiovecArray<'_>, offset: Filesize) -> Result<Size, Errno> {
     let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasi_snapshot_preview1::fd_pwrite(
+    let ret = wasix_snapshot_preview1::fd_pwrite(
         fd as i32,
         iovs.as_ptr() as i32,
         iovs.len() as i32,
@@ -1740,7 +2348,7 @@ pub unsafe fn fd_pwrite(fd: Fd, iovs: CiovecArray<'_>, offset: Filesize) -> Resu
 /// The number of bytes read.
 pub unsafe fn fd_read(fd: Fd, iovs: IovecArray<'_>) -> Result<Size, Errno> {
     let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasi_snapshot_preview1::fd_read(
+    let ret = wasix_snapshot_preview1::fd_read(
         fd as i32,
         iovs.as_ptr() as i32,
         iovs.len() as i32,
@@ -1777,7 +2385,7 @@ pub unsafe fn fd_readdir(
     cookie: Dircookie,
 ) -> Result<Size, Errno> {
     let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasi_snapshot_preview1::fd_readdir(
+    let ret = wasix_snapshot_preview1::fd_readdir(
         fd as i32,
         buf as i32,
         buf_len as i32,
@@ -1803,7 +2411,7 @@ pub unsafe fn fd_readdir(
 ///
 /// * `to` - The file descriptor to overwrite.
 pub unsafe fn fd_renumber(fd: Fd, to: Fd) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::fd_renumber(fd as i32, to as i32);
+    let ret = wasix_snapshot_preview1::fd_renumber(fd as i32, to as i32);
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
@@ -1823,7 +2431,7 @@ pub unsafe fn fd_renumber(fd: Fd, to: Fd) -> Result<(), Errno> {
 /// The new offset of the file descriptor, relative to the start of the file.
 pub unsafe fn fd_seek(fd: Fd, offset: Filedelta, whence: Whence) -> Result<Filesize, Errno> {
     let mut rp0 = MaybeUninit::<Filesize>::uninit();
-    let ret = wasi_snapshot_preview1::fd_seek(
+    let ret = wasix_snapshot_preview1::fd_seek(
         fd as i32,
         offset,
         whence.0 as i32,
@@ -1838,7 +2446,7 @@ pub unsafe fn fd_seek(fd: Fd, offset: Filedelta, whence: Whence) -> Result<Files
 /// Synchronize the data and metadata of a file to disk.
 /// Note: This is similar to `fsync` in POSIX.
 pub unsafe fn fd_sync(fd: Fd) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::fd_sync(fd as i32);
+    let ret = wasix_snapshot_preview1::fd_sync(fd as i32);
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
@@ -1853,7 +2461,7 @@ pub unsafe fn fd_sync(fd: Fd) -> Result<(), Errno> {
 /// The current offset of the file descriptor, relative to the start of the file.
 pub unsafe fn fd_tell(fd: Fd) -> Result<Filesize, Errno> {
     let mut rp0 = MaybeUninit::<Filesize>::uninit();
-    let ret = wasi_snapshot_preview1::fd_tell(fd as i32, rp0.as_mut_ptr() as i32);
+    let ret = wasix_snapshot_preview1::fd_tell(fd as i32, rp0.as_mut_ptr() as i32);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Filesize)),
         _ => Err(Errno(ret as u16)),
@@ -1868,7 +2476,7 @@ pub unsafe fn fd_tell(fd: Fd) -> Result<Filesize, Errno> {
 /// * `iovs` - List of scatter/gather vectors from which to retrieve data.
 pub unsafe fn fd_write(fd: Fd, iovs: CiovecArray<'_>) -> Result<Size, Errno> {
     let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasi_snapshot_preview1::fd_write(
+    let ret = wasix_snapshot_preview1::fd_write(
         fd as i32,
         iovs.as_ptr() as i32,
         iovs.len() as i32,
@@ -1887,7 +2495,7 @@ pub unsafe fn fd_write(fd: Fd, iovs: CiovecArray<'_>) -> Result<Size, Errno> {
 ///
 /// * `path` - The path at which to create the directory.
 pub unsafe fn path_create_directory(fd: Fd, path: &str) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::path_create_directory(
+    let ret = wasix_snapshot_preview1::path_create_directory(
         fd as i32,
         path.as_ptr() as i32,
         path.len() as i32,
@@ -1911,7 +2519,7 @@ pub unsafe fn path_create_directory(fd: Fd, path: &str) -> Result<(), Errno> {
 /// The buffer where the file's attributes are stored.
 pub unsafe fn path_filestat_get(fd: Fd, flags: Lookupflags, path: &str) -> Result<Filestat, Errno> {
     let mut rp0 = MaybeUninit::<Filestat>::uninit();
-    let ret = wasi_snapshot_preview1::path_filestat_get(
+    let ret = wasix_snapshot_preview1::path_filestat_get(
         fd as i32,
         flags as i32,
         path.as_ptr() as i32,
@@ -1942,7 +2550,7 @@ pub unsafe fn path_filestat_set_times(
     mtim: Timestamp,
     fst_flags: Fstflags,
 ) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::path_filestat_set_times(
+    let ret = wasix_snapshot_preview1::path_filestat_set_times(
         fd as i32,
         flags as i32,
         path.as_ptr() as i32,
@@ -1973,7 +2581,7 @@ pub unsafe fn path_link(
     new_fd: Fd,
     new_path: &str,
 ) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::path_link(
+    let ret = wasix_snapshot_preview1::path_link(
         old_fd as i32,
         old_flags as i32,
         old_path.as_ptr() as i32,
@@ -2023,7 +2631,7 @@ pub unsafe fn path_open(
     fdflags: Fdflags,
 ) -> Result<Fd, Errno> {
     let mut rp0 = MaybeUninit::<Fd>::uninit();
-    let ret = wasi_snapshot_preview1::path_open(
+    let ret = wasix_snapshot_preview1::path_open(
         fd as i32,
         dirflags as i32,
         path.as_ptr() as i32,
@@ -2058,7 +2666,7 @@ pub unsafe fn path_readlink(
     buf_len: Size,
 ) -> Result<Size, Errno> {
     let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasi_snapshot_preview1::path_readlink(
+    let ret = wasix_snapshot_preview1::path_readlink(
         fd as i32,
         path.as_ptr() as i32,
         path.len() as i32,
@@ -2080,7 +2688,7 @@ pub unsafe fn path_readlink(
 ///
 /// * `path` - The path to a directory to remove.
 pub unsafe fn path_remove_directory(fd: Fd, path: &str) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::path_remove_directory(
+    let ret = wasix_snapshot_preview1::path_remove_directory(
         fd as i32,
         path.as_ptr() as i32,
         path.len() as i32,
@@ -2100,7 +2708,7 @@ pub unsafe fn path_remove_directory(fd: Fd, path: &str) -> Result<(), Errno> {
 /// * `new_fd` - The working directory at which the resolution of the new path starts.
 /// * `new_path` - The destination path to which to rename the file or directory.
 pub unsafe fn path_rename(fd: Fd, old_path: &str, new_fd: Fd, new_path: &str) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::path_rename(
+    let ret = wasix_snapshot_preview1::path_rename(
         fd as i32,
         old_path.as_ptr() as i32,
         old_path.len() as i32,
@@ -2122,7 +2730,7 @@ pub unsafe fn path_rename(fd: Fd, old_path: &str, new_fd: Fd, new_path: &str) ->
 /// * `old_path` - The contents of the symbolic link.
 /// * `new_path` - The destination path at which to create the symbolic link.
 pub unsafe fn path_symlink(old_path: &str, fd: Fd, new_path: &str) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::path_symlink(
+    let ret = wasix_snapshot_preview1::path_symlink(
         old_path.as_ptr() as i32,
         old_path.len() as i32,
         fd as i32,
@@ -2143,7 +2751,7 @@ pub unsafe fn path_symlink(old_path: &str, fd: Fd, new_path: &str) -> Result<(),
 ///
 /// * `path` - The path to a file to unlink.
 pub unsafe fn path_unlink_file(fd: Fd, path: &str) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::path_unlink_file(
+    let ret = wasix_snapshot_preview1::path_unlink_file(
         fd as i32,
         path.as_ptr() as i32,
         path.len() as i32,
@@ -2171,7 +2779,7 @@ pub unsafe fn poll_oneoff(
     nsubscriptions: Size,
 ) -> Result<Size, Errno> {
     let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasi_snapshot_preview1::poll_oneoff(
+    let ret = wasix_snapshot_preview1::poll_oneoff(
         in_ as i32,
         out as i32,
         nsubscriptions as i32,
@@ -2191,7 +2799,7 @@ pub unsafe fn poll_oneoff(
 ///
 /// * `rval` - The exit code returned by the process.
 pub unsafe fn proc_exit(rval: Exitcode) {
-    wasi_snapshot_preview1::proc_exit(rval as i32);
+    wasix_snapshot_preview1::proc_exit(rval as i32);
 }
 
 /// Send a signal to the process of the calling thread.
@@ -2201,7 +2809,7 @@ pub unsafe fn proc_exit(rval: Exitcode) {
 ///
 /// * `sig` - The signal condition to trigger.
 pub unsafe fn proc_raise(sig: Signal) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::proc_raise(sig.0 as i32);
+    let ret = wasix_snapshot_preview1::proc_raise(sig.0 as i32);
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
@@ -2211,7 +2819,7 @@ pub unsafe fn proc_raise(sig: Signal) -> Result<(), Errno> {
 /// Temporarily yield execution of the calling thread.
 /// Note: This is similar to `sched_yield` in POSIX.
 pub unsafe fn sched_yield() -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::sched_yield();
+    let ret = wasix_snapshot_preview1::sched_yield();
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
@@ -2229,9 +2837,458 @@ pub unsafe fn sched_yield() -> Result<(), Errno> {
 ///
 /// * `buf` - The buffer to fill with random data.
 pub unsafe fn random_get(buf: *mut u8, buf_len: Size) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::random_get(buf as i32, buf_len as i32);
+    let ret = wasix_snapshot_preview1::random_get(buf as i32, buf_len as i32);
     match ret {
         0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Opens the STDIN from TTY
+pub unsafe fn tty_stdin() -> Result<Fd, Errno> {
+    let mut rp0 = MaybeUninit::<Fd>::uninit();
+    let ret = wasix_snapshot_preview1::tty_stdin(rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Opens the STDOUT from TTY
+pub unsafe fn tty_stdout() -> Result<Fd, Errno> {
+    let mut rp0 = MaybeUninit::<Fd>::uninit();
+    let ret = wasix_snapshot_preview1::tty_stdout(rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Opens the STDERR from TTY
+pub unsafe fn tty_stderr() -> Result<Fd, Errno> {
+    let mut rp0 = MaybeUninit::<Fd>::uninit();
+    let ret = wasix_snapshot_preview1::tty_stderr(rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Retrieves the rect of the TTY display
+///
+/// ## Parameters
+///
+/// * `rect` - The rect which will be filled by this call
+pub unsafe fn tty_rect(rect: *mut Rect) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::tty_rect(rect as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Creates a new thread by spawning a new process that shares the same
+/// memory address space, file handles and main event loops
+///
+/// The return value is either 0 which indicates this is the child process
+/// or its a positive PID that gives a handle to the child thread that was
+/// created
+pub unsafe fn thread_fork() -> Result<Pid, Errno> {
+    let mut rp0 = MaybeUninit::<Pid>::uninit();
+    let ret = wasix_snapshot_preview1::thread_fork(rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Pid)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Sends the current thread to sleep for a period of time
+///
+/// ## Parameters
+///
+/// * `duration` - Amount of time that the thread should sleep
+pub unsafe fn thread_sleep(duration: Timestamp) -> Result<Pid, Errno> {
+    let mut rp0 = MaybeUninit::<Pid>::uninit();
+    let ret = wasix_snapshot_preview1::thread_sleep(duration as i64, rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Pid)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Returns the handle of the current thread
+pub unsafe fn thread_id() -> Result<Pid, Errno> {
+    let mut rp0 = MaybeUninit::<Pid>::uninit();
+    let ret = wasix_snapshot_preview1::thread_id(rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Pid)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Terminates the current running thread, if this is the last thread then
+/// the process will also exit with the specified exit code. An exit code
+/// of 0 indicates successful termination of the thread. The meanings of
+/// other values is dependent on the environment.
+///
+/// ## Parameters
+///
+/// * `rval` - The exit code returned by the process.
+pub unsafe fn thread_exit(rval: Exitcode) {
+    wasix_snapshot_preview1::thread_exit(rval as i32);
+}
+
+/// Spawns a new bus process for a particular web WebAssembly
+/// binary that is referenced by its process name.
+///
+/// ## Parameters
+///
+/// * `desc` - Descriptor of the process to be spawned
+///
+/// ## Return
+///
+/// Returns a bus process id that can be used to invoke calls
+pub unsafe fn bus_spawn(desc: BusProcess) -> Result<BusHandles, BusError> {
+    let mut rp0 = MaybeUninit::<BusHandles>::uninit();
+    let ret = wasix_snapshot_preview1::bus_spawn(&desc as *const _ as i32, rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const BusHandles)),
+        _ => Err(BusError(ret as u32)),
+    }
+}
+
+/// Closes a bus process and releases all associated resources
+///
+/// ## Parameters
+///
+/// * `bid` - Handle of the bus process handle to be closed
+pub unsafe fn bus_close(bid: Bid) -> Result<(), BusError> {
+    let ret = wasix_snapshot_preview1::bus_close(bid as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(BusError(ret as u32)),
+    }
+}
+
+/// Invokes a call within a running bus process.
+///
+/// ## Parameters
+///
+/// * `bid` - Handle of the bus process to invoke the call within
+/// * `parent` - Optional parent bus call that this is related to
+/// * `keep_alive` - Causes the call handle to remain open even when A
+///   reply is received. It is then the  callers responsibility
+///   to invoke 'bus_drop' when they are finished with the call
+/// * `topic` - Topic that describes the type of call to made
+/// * `buf` - The buffer where data to be transmitted is stored
+pub unsafe fn bus_invoke(
+    bid: Bid,
+    parent: OptionCid,
+    keep_alive: Bool,
+    topic: &str,
+    buf: BufArray<'_>,
+) -> Result<Cid, BusError> {
+    let mut rp0 = MaybeUninit::<Cid>::uninit();
+    let ret = wasix_snapshot_preview1::bus_invoke(
+        bid as i32,
+        &parent as *const _ as i32,
+        keep_alive.0 as i32,
+        topic.as_ptr() as i32,
+        topic.len() as i32,
+        buf.as_ptr() as i32,
+        buf.len() as i32,
+        rp0.as_mut_ptr() as i32,
+    );
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Cid)),
+        _ => Err(BusError(ret as u32)),
+    }
+}
+
+/// Causes a fault on a particular call that was made
+/// to this process from another process; where 'bid'
+/// is the callering process context.
+///
+/// ## Parameters
+///
+/// * `cid` - Handle of the call to raise a fault on
+/// * `fault` - Fault to be raised on the bus
+pub unsafe fn bus_fault(cid: Cid, fault: BusError) -> Result<(), BusError> {
+    let ret = wasix_snapshot_preview1::bus_fault(cid as i32, fault.0 as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(BusError(ret as u32)),
+    }
+}
+
+/// Closes a bus call based on its bus call handle
+///
+/// ## Parameters
+///
+/// * `cid` - Handle of the bus call handle to be dropped
+pub unsafe fn bus_drop(cid: Cid) -> Result<(), BusError> {
+    let ret = wasix_snapshot_preview1::bus_drop(cid as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(BusError(ret as u32)),
+    }
+}
+
+/// Replies to a call that was made to this process
+/// from another process; where 'cid' is the call context.
+/// This will may also drop the handle and release any
+/// associated resources (if keepalive is not set)
+///
+/// ## Parameters
+///
+/// * `cid` - Handle of the call to send a reply on
+/// * `buf` - The buffer where data to be transmitted is stored
+pub unsafe fn bus_reply(cid: Cid, buf: BufArray<'_>) -> Result<(), BusError> {
+    let ret = wasix_snapshot_preview1::bus_reply(cid as i32, buf.as_ptr() as i32, buf.len() as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(BusError(ret as u32)),
+    }
+}
+
+/// Invokes a callback within the calling process against
+/// a particular bus call represented by 'cid'.
+///
+/// ## Parameters
+///
+/// * `cid` - Handle of the call where a callback will be send
+/// * `topic` - Topic that describes the type of callback
+/// * `buf` - The buffer where data to be transmitted is stored
+pub unsafe fn bus_callback(cid: Cid, topic: &str, buf: BufArray<'_>) -> Result<(), BusError> {
+    let ret = wasix_snapshot_preview1::bus_callback(
+        cid as i32,
+        topic.as_ptr() as i32,
+        topic.len() as i32,
+        buf.as_ptr() as i32,
+        buf.len() as i32,
+    );
+    match ret {
+        0 => Ok(()),
+        _ => Err(BusError(ret as u32)),
+    }
+}
+
+/// Tells the operating system that this process is
+/// now listening for bus calls on a particular topic
+///
+/// ## Parameters
+///
+/// * `parent` - Optional parent bus call that this is related to
+/// * `topic` - Topic that describes the process will listen forcalls on
+pub unsafe fn bus_listen(parent: OptionCid, topic: &str) -> Result<(), BusError> {
+    let ret = wasix_snapshot_preview1::bus_listen(
+        &parent as *const _ as i32,
+        topic.as_ptr() as i32,
+        topic.len() as i32,
+    );
+    match ret {
+        0 => Ok(()),
+        _ => Err(BusError(ret as u32)),
+    }
+}
+
+/// Polls for any outstanding events from a particular
+/// bus process by its handle
+///
+/// ## Parameters
+///
+/// * `bid` - Handle of the bus process to poll for new events
+///   (if no process is supplied then it polls for the current process)
+/// * `timeout` - Timeout before the poll returns, if one passed 0
+///   as the timeout then this call is non blocking.
+/// * `events` - An events buffer that will hold any received bus events
+///
+/// ## Return
+///
+/// Returns the number of events that have occured
+pub unsafe fn bus_poll(
+    bid: OptionBid,
+    timeout: Timestamp,
+    events: *mut BusEvent,
+    nevents: Size,
+) -> Result<Size, BusError> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
+    let ret = wasix_snapshot_preview1::bus_poll(
+        &bid as *const _ as i32,
+        timeout as i64,
+        events as i32,
+        nevents as i32,
+        rp0.as_mut_ptr() as i32,
+    );
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
+        _ => Err(BusError(ret as u32)),
+    }
+}
+
+/// Receives the next event data from the bus
+///
+/// ## Parameters
+///
+/// * `bid` - Handle of the bus process to poll for new events
+///   (if no process is supplied then it polls for the current process)
+/// * `ty` - Type of event data that is held here
+/// * `cid` - Handle of the call this data is related to
+/// * `topic` - The topic that describes the event that happened
+/// * `buf` - The buffer where event data is stored
+///
+/// ## Return
+///
+/// Returns the number of events that have occured
+pub unsafe fn bus_poll_data(
+    bid: OptionBid,
+    ty: *mut BusDataType,
+    cid: *mut Cid,
+    topic: *mut u8,
+    topic_len: Size,
+    buf: *mut u8,
+    buf_len: Size,
+) -> Result<(), BusError> {
+    let ret = wasix_snapshot_preview1::bus_poll_data(
+        &bid as *const _ as i32,
+        ty as i32,
+        cid as i32,
+        topic as i32,
+        topic_len as i32,
+        buf as i32,
+        buf_len as i32,
+    );
+    match ret {
+        0 => Ok(()),
+        _ => Err(BusError(ret as u32)),
+    }
+}
+
+/// Connects to a websocket at a particular network URL
+///
+/// ## Parameters
+///
+/// * `url` - URL of the web socket destination to connect to
+///
+/// ## Return
+///
+/// Returns a socket handle which is used to send and receive data
+pub unsafe fn ws_connect(url: &str) -> Result<Fd, Errno> {
+    let mut rp0 = MaybeUninit::<Fd>::uninit();
+    let ret = wasix_snapshot_preview1::ws_connect(
+        url.as_ptr() as i32,
+        url.len() as i32,
+        rp0.as_mut_ptr() as i32,
+    );
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Makes a HTTP request to a remote web resource and
+/// returns a socket handles that are used to send and receive data
+///
+/// ## Parameters
+///
+/// * `url` - URL of the HTTP resource to connect to
+/// * `method` - HTTP method to be invoked
+/// * `body` - HTTP body to be sent with this request
+/// * `headers` - HTTP headers to attach to the request
+/// * `gzip` - Should the request body be compressed
+///
+/// ## Return
+///
+/// The body of the response can be streamed from the returned
+/// file handle
+pub unsafe fn http_request(
+    url: &str,
+    method: &str,
+    body: BufArray<'_>,
+    headers: HttpHeaderArray<'_>,
+    gzip: Bool,
+) -> Result<HttpHandles, Errno> {
+    let mut rp0 = MaybeUninit::<HttpHandles>::uninit();
+    let ret = wasix_snapshot_preview1::http_request(
+        url.as_ptr() as i32,
+        url.len() as i32,
+        method.as_ptr() as i32,
+        method.len() as i32,
+        body.as_ptr() as i32,
+        body.len() as i32,
+        headers.as_ptr() as i32,
+        headers.len() as i32,
+        gzip.0 as i32,
+        rp0.as_mut_ptr() as i32,
+    );
+    match ret {
+        0 => Ok(core::ptr::read(
+            rp0.as_mut_ptr() as i32 as *const HttpHandles
+        )),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Retrieves the status of a HTTP request
+///
+/// ## Parameters
+///
+/// * `fd` - Handle of the HTTP request
+/// * `status` - Pointer to a buffer that will be filled with the current
+///   status of this HTTP request
+/// * `status_text` - Buffer that will hold the status text
+///
+/// ## Return
+///
+/// Returns the number of bytes held in the status text field
+pub unsafe fn http_status(
+    fd: Fd,
+    status: *mut HttpStatus,
+    status_text: *mut u8,
+    status_text_len: Size,
+) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
+    let ret = wasix_snapshot_preview1::http_status(
+        fd as i32,
+        status as i32,
+        status_text as i32,
+        status_text_len as i32,
+        rp0.as_mut_ptr() as i32,
+    );
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Returns the next HTTP response header received from
+/// the http server
+///
+/// ## Parameters
+///
+/// * `fd` - Handle of the HTTP request
+/// * `key` - Buffer that will hold the header name
+/// * `val` - Buffer that will hold the header value
+pub unsafe fn http_header(
+    fd: Fd,
+    key: *mut u8,
+    key_len: Size,
+    val: *mut u8,
+    val_len: Size,
+) -> Result<HttpHeaderSizes, Errno> {
+    let mut rp0 = MaybeUninit::<HttpHeaderSizes>::uninit();
+    let ret = wasix_snapshot_preview1::http_header(
+        fd as i32,
+        key as i32,
+        key_len as i32,
+        val as i32,
+        val_len as i32,
+        rp0.as_mut_ptr() as i32,
+    );
+    match ret {
+        0 => Ok(core::ptr::read(
+            rp0.as_mut_ptr() as i32 as *const HttpHeaderSizes
+        )),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -2243,9 +3300,19 @@ pub unsafe fn random_get(buf: *mut u8, buf_len: Size) -> Result<(), Errno> {
 ///
 /// * `how` - Which channels on the socket to shut down.
 pub unsafe fn sock_shutdown(fd: Fd, how: Sdflags) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::sock_shutdown(fd as i32, how as i32);
+    let ret = wasix_snapshot_preview1::sock_shutdown(fd as i32, how as i32);
     match ret {
         0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Returns the current status of a socket
+pub unsafe fn sock_status(fd: Fd) -> Result<SockStatus, Errno> {
+    let mut rp0 = MaybeUninit::<SockStatus>::uninit();
+    let ret = wasix_snapshot_preview1::sock_status(fd as i32, rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const SockStatus)),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -2260,11 +3327,11 @@ pub unsafe fn sock_shutdown(fd: Fd, how: Sdflags) -> Result<(), Errno> {
 /// ## Parameters
 ///
 /// * `fd` - Socket that the address is bound to
-/// * `buf` - The buffer where IP addresses will be stored
-pub unsafe fn sock_addr_local(fd: Fd, buf: *mut u8, buf_len: Size) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::sock_addr_local(fd as i32, buf as i32, buf_len as i32);
+pub unsafe fn sock_addr_local(fd: Fd) -> Result<AddrIp, Errno> {
+    let mut rp0 = MaybeUninit::<AddrIp>::uninit();
+    let ret = wasix_snapshot_preview1::sock_addr_local(fd as i32, rp0.as_mut_ptr() as i32);
     match ret {
-        0 => Ok(()),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const AddrIp)),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -2279,18 +3346,19 @@ pub unsafe fn sock_addr_local(fd: Fd, buf: *mut u8, buf_len: Size) -> Result<(),
 /// ## Parameters
 ///
 /// * `fd` - Socket that the address is bound to
-/// * `buf` - The buffer where IP addresses will be stored
-pub unsafe fn sock_addr_remote(fd: Fd, buf: *mut u8, buf_len: Size) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::sock_addr_remote(fd as i32, buf as i32, buf_len as i32);
+pub unsafe fn sock_addr_remote(fd: Fd) -> Result<AddrIp, Errno> {
+    let mut rp0 = MaybeUninit::<AddrIp>::uninit();
+    let ret = wasix_snapshot_preview1::sock_addr_remote(fd as i32, rp0.as_mut_ptr() as i32);
     match ret {
-        0 => Ok(()),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const AddrIp)),
         _ => Err(Errno(ret as u16)),
     }
 }
 
 /// Create an endpoint for communication.
+///
 /// creates an endpoint for communication and returns a file descriptor
-/// tor that refers to that endpoint.  The file descriptor returned by a successful
+/// tor that refers to that endpoint. The file descriptor returned by a successful
 /// call will be the lowest-numbered file descriptor not currently open
 /// for the process.
 ///
@@ -2311,7 +3379,7 @@ pub unsafe fn sock_open(
     socktype: SockType,
 ) -> Result<Fd, Errno> {
     let mut rp0 = MaybeUninit::<Fd>::uninit();
-    let ret = wasi_snapshot_preview1::sock_open(
+    let ret = wasix_snapshot_preview1::sock_open(
         capability as i32,
         af.0 as i32,
         socktype.0 as i32,
@@ -2329,9 +3397,9 @@ pub unsafe fn sock_open(
 /// ## Parameters
 ///
 /// * `fd` - Socket descriptor
-/// * `reuse` - 1 to enable, 0 to disable
-pub unsafe fn sock_set_reuse_addr(fd: Fd, reuse: u8) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::sock_set_reuse_addr(fd as i32, reuse as i32);
+/// * `reuse` - Should the socket reuse addresses
+pub unsafe fn sock_set_reuse_addr(fd: Fd, reuse: Bool) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::sock_set_reuse_addr(fd as i32, reuse.0 as i32);
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
@@ -2346,7 +3414,7 @@ pub unsafe fn sock_set_reuse_addr(fd: Fd, reuse: u8) -> Result<(), Errno> {
 /// * `fd` - Socket descriptor
 pub unsafe fn sock_get_reuse_addr(fd: Fd) -> Result<Size, Errno> {
     let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasi_snapshot_preview1::sock_get_reuse_addr(fd as i32, rp0.as_mut_ptr() as i32);
+    let ret = wasix_snapshot_preview1::sock_get_reuse_addr(fd as i32, rp0.as_mut_ptr() as i32);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
         _ => Err(Errno(ret as u16)),
@@ -2359,9 +3427,9 @@ pub unsafe fn sock_get_reuse_addr(fd: Fd) -> Result<Size, Errno> {
 /// ## Parameters
 ///
 /// * `fd` - Socket descriptor
-/// * `reuse` - 1 to enable, 0 to disable
-pub unsafe fn sock_set_reuse_port(fd: Fd, reuse: u8) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::sock_set_reuse_port(fd as i32, reuse as i32);
+/// * `reuse` - Should the socket reuse ports
+pub unsafe fn sock_set_reuse_port(fd: Fd, reuse: Bool) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::sock_set_reuse_port(fd as i32, reuse.0 as i32);
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
@@ -2376,7 +3444,7 @@ pub unsafe fn sock_set_reuse_port(fd: Fd, reuse: u8) -> Result<(), Errno> {
 /// * `fd` - Socket descriptor
 pub unsafe fn sock_get_reuse_port(fd: Fd) -> Result<Size, Errno> {
     let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasi_snapshot_preview1::sock_get_reuse_port(fd as i32, rp0.as_mut_ptr() as i32);
+    let ret = wasix_snapshot_preview1::sock_get_reuse_port(fd as i32, rp0.as_mut_ptr() as i32);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
         _ => Err(Errno(ret as u16)),
@@ -2391,7 +3459,7 @@ pub unsafe fn sock_get_reuse_port(fd: Fd) -> Result<Size, Errno> {
 /// * `fd` - Socket descriptor
 /// * `size` - Buffer size
 pub unsafe fn sock_set_recv_buf_size(fd: Fd, size: Size) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::sock_set_recv_buf_size(fd as i32, size as i32);
+    let ret = wasix_snapshot_preview1::sock_set_recv_buf_size(fd as i32, size as i32);
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
@@ -2406,7 +3474,7 @@ pub unsafe fn sock_set_recv_buf_size(fd: Fd, size: Size) -> Result<(), Errno> {
 /// * `fd` - Socket descriptor
 pub unsafe fn sock_get_recv_buf_size(fd: Fd) -> Result<Size, Errno> {
     let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasi_snapshot_preview1::sock_get_recv_buf_size(fd as i32, rp0.as_mut_ptr() as i32);
+    let ret = wasix_snapshot_preview1::sock_get_recv_buf_size(fd as i32, rp0.as_mut_ptr() as i32);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
         _ => Err(Errno(ret as u16)),
@@ -2421,7 +3489,7 @@ pub unsafe fn sock_get_recv_buf_size(fd: Fd) -> Result<Size, Errno> {
 /// * `fd` - Socket descriptor
 /// * `size` - Buffer size
 pub unsafe fn sock_set_send_buf_size(fd: Fd, size: Size) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::sock_set_send_buf_size(fd as i32, size as i32);
+    let ret = wasix_snapshot_preview1::sock_set_send_buf_size(fd as i32, size as i32);
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
@@ -2436,7 +3504,7 @@ pub unsafe fn sock_set_send_buf_size(fd: Fd, size: Size) -> Result<(), Errno> {
 /// * `fd` - Socket descriptor
 pub unsafe fn sock_get_send_buf_size(fd: Fd) -> Result<Size, Errno> {
     let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasi_snapshot_preview1::sock_get_send_buf_size(fd as i32, rp0.as_mut_ptr() as i32);
+    let ret = wasix_snapshot_preview1::sock_get_send_buf_size(fd as i32, rp0.as_mut_ptr() as i32);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
         _ => Err(Errno(ret as u16)),
@@ -2450,8 +3518,8 @@ pub unsafe fn sock_get_send_buf_size(fd: Fd) -> Result<Size, Errno> {
 ///
 /// * `fd` - File descriptor of the socket to be bind
 /// * `addr` - Address to bind the socket to
-pub unsafe fn sock_bind(fd: Fd, addr: *mut Addr) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::sock_bind(fd as i32, addr as i32);
+pub unsafe fn sock_bind(fd: Fd, addr: AddrPort) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::sock_bind(fd as i32, &addr as *const _ as i32);
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
@@ -2466,7 +3534,7 @@ pub unsafe fn sock_bind(fd: Fd, addr: *mut Addr) -> Result<(), Errno> {
 /// * `fd` - File descriptor of the socket to be bind
 /// * `backlog` - Maximum size of the queue for pending connections
 pub unsafe fn sock_listen(fd: Fd, backlog: Size) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::sock_listen(fd as i32, backlog as i32);
+    let ret = wasix_snapshot_preview1::sock_listen(fd as i32, backlog as i32);
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
@@ -2481,7 +3549,7 @@ pub unsafe fn sock_listen(fd: Fd, backlog: Size) -> Result<(), Errno> {
 /// * `fd` - File descriptor of the socket to be bind
 pub unsafe fn sock_accept(fd: Fd) -> Result<Fd, Errno> {
     let mut rp0 = MaybeUninit::<Fd>::uninit();
-    let ret = wasi_snapshot_preview1::sock_accept(fd as i32, rp0.as_mut_ptr() as i32);
+    let ret = wasix_snapshot_preview1::sock_accept(fd as i32, rp0.as_mut_ptr() as i32);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd)),
         _ => Err(Errno(ret as u16)),
@@ -2495,8 +3563,8 @@ pub unsafe fn sock_accept(fd: Fd) -> Result<Fd, Errno> {
 ///
 /// * `fd` - Socket descriptor
 /// * `addr` - Address of the socket to connect to
-pub unsafe fn sock_connect(fd: Fd, addr: *mut Addr) -> Result<(), Errno> {
-    let ret = wasi_snapshot_preview1::sock_connect(fd as i32, addr as i32);
+pub unsafe fn sock_connect(fd: Fd, addr: AddrPort) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::sock_connect(fd as i32, &addr as *const _ as i32);
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
@@ -2517,7 +3585,7 @@ pub unsafe fn sock_recv(
     flags: Riflags,
 ) -> Result<Size, Errno> {
     let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasi_snapshot_preview1::sock_recv(
+    let ret = wasix_snapshot_preview1::sock_recv(
         fd as i32,
         buf as i32,
         buf_len as i32,
@@ -2539,23 +3607,21 @@ pub unsafe fn sock_recv(
 /// ## Parameters
 ///
 /// * `buf` - The buffer where data will be stored
-/// * `addr_buf` - The address of origin for the message
+/// * `addr` - The address of origin for the message
 /// * `flags` - Message flags.
 pub unsafe fn sock_recv_from(
     fd: Fd,
     buf: *mut u8,
     buf_len: Size,
-    addr_buf: *mut u8,
-    addr_buf_len: Size,
+    addr: *mut AddrPort,
     flags: Riflags,
 ) -> Result<Size, Errno> {
     let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasi_snapshot_preview1::sock_recv_from(
+    let ret = wasix_snapshot_preview1::sock_recv_from(
         fd as i32,
         buf as i32,
         buf_len as i32,
-        addr_buf as i32,
-        addr_buf_len as i32,
+        addr as i32,
         flags as i32,
         rp0.as_mut_ptr() as i32,
     );
@@ -2576,17 +3642,12 @@ pub unsafe fn sock_recv_from(
 /// ## Return
 ///
 /// Number of bytes transmitted.
-pub unsafe fn sock_send(
-    fd: Fd,
-    buf: *mut u8,
-    buf_len: Size,
-    flags: Siflags,
-) -> Result<Size, Errno> {
+pub unsafe fn sock_send(fd: Fd, buf: BufArray<'_>, flags: Siflags) -> Result<Size, Errno> {
     let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasi_snapshot_preview1::sock_send(
+    let ret = wasix_snapshot_preview1::sock_send(
         fd as i32,
-        buf as i32,
-        buf_len as i32,
+        buf.as_ptr() as i32,
+        buf.len() as i32,
         flags as i32,
         rp0.as_mut_ptr() as i32,
     );
@@ -2610,17 +3671,16 @@ pub unsafe fn sock_send(
 /// Number of bytes transmitted.
 pub unsafe fn sock_send_to(
     fd: Fd,
-    buf: *mut u8,
-    buf_len: Size,
-    addr: *mut Addr,
+    buf: BufArray<'_>,
+    addr: AddrPort,
     flags: Siflags,
 ) -> Result<Size, Errno> {
     let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasi_snapshot_preview1::sock_send_to(
+    let ret = wasix_snapshot_preview1::sock_send_to(
         fd as i32,
-        buf as i32,
-        buf_len as i32,
-        addr as i32,
+        buf.as_ptr() as i32,
+        buf.len() as i32,
+        &addr as *const _ as i32,
         flags as i32,
         rp0.as_mut_ptr() as i32,
     );
@@ -2630,42 +3690,29 @@ pub unsafe fn sock_send_to(
     }
 }
 
-/// Resolves a hostname and a port to one or more IP addresses. Port is optional
-/// and you can pass 0 (zero) in most cases, it is used a hint for protocol.
+/// Resolves a hostname and a port to one or more IP addresses.
 ///
 /// Note: This is similar to `getaddrinfo` in POSIX
 ///
 /// When successful, the contents of the output buffer consist of a sequence of
 /// IPv4 and/or IPv6 addresses. Each address entry consists of a addr_t object.
-/// This function fills the output buffer as much as possible, potentially
-/// truncating the last address entry.
+/// This function fills the output buffer as much as possible.
 ///
 /// ## Parameters
 ///
-/// * `pool` - Address pool file descriptor
 /// * `host` - Host to resolve
-/// * `port` - Port number
-/// * `buf` - The buffer where IP addresses will be stored
+/// * `ips` - The buffer where IP addresses will be stored
 ///
 /// ## Return
 ///
-/// The number of bytes stored in the buffer. If less than the size of the buffer, no
-/// more IP addresses are available.
-pub unsafe fn sock_resolve(
-    pool: Fd,
-    host: &str,
-    port: IpPort,
-    buf: *mut u8,
-    buf_len: Size,
-) -> Result<Size, Errno> {
+/// The number of IP addresses returned during the DNS resolution.
+pub unsafe fn resolve(host: &str, ips: *mut AddrIp, nips: Size) -> Result<Size, Errno> {
     let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasi_snapshot_preview1::sock_resolve(
-        pool as i32,
+    let ret = wasix_snapshot_preview1::resolve(
         host.as_ptr() as i32,
         host.len() as i32,
-        port as i32,
-        buf as i32,
-        buf_len as i32,
+        ips as i32,
+        nips as i32,
         rp0.as_mut_ptr() as i32,
     );
     match ret {
@@ -2674,8 +3721,8 @@ pub unsafe fn sock_resolve(
     }
 }
 
-pub mod wasi_snapshot_preview1 {
-    #[link(wasm_import_module = "wasi_snapshot_preview1")]
+pub mod wasix_snapshot_preview1 {
+    #[link(wasm_import_module = "wasix_snapshot_preview1")]
     extern "C" {
         /// Read command-line argument data.
         /// The size of the array should match that returned by `args_sizes_get`.
@@ -2860,26 +3907,121 @@ pub mod wasi_snapshot_preview1 {
         /// required, it's advisable to use this function to seed a pseudo-random
         /// number generator, rather than to provide the random data directly.
         pub fn random_get(arg0: i32, arg1: i32) -> i32;
+        /// Opens the STDIN from TTY
+        pub fn tty_stdin(arg0: i32) -> i32;
+        /// Opens the STDOUT from TTY
+        pub fn tty_stdout(arg0: i32) -> i32;
+        /// Opens the STDERR from TTY
+        pub fn tty_stderr(arg0: i32) -> i32;
+        /// Retrieves the rect of the TTY display
+        pub fn tty_rect(arg0: i32) -> i32;
+        /// Creates a new thread by spawning a new process that shares the same
+        /// memory address space, file handles and main event loops
+        ///
+        /// The return value is either 0 which indicates this is the child process
+        /// or its a positive PID that gives a handle to the child thread that was
+        /// created
+        pub fn thread_fork(arg0: i32) -> i32;
+        /// Sends the current thread to sleep for a period of time
+        pub fn thread_sleep(arg0: i64, arg1: i32) -> i32;
+        /// Returns the handle of the current thread
+        pub fn thread_id(arg0: i32) -> i32;
+        /// Terminates the current running thread, if this is the last thread then
+        /// the process will also exit with the specified exit code. An exit code
+        /// of 0 indicates successful termination of the thread. The meanings of
+        /// other values is dependent on the environment.
+        pub fn thread_exit(arg0: i32) -> !;
+        /// Spawns a new bus process for a particular web WebAssembly
+        /// binary that is referenced by its process name.
+        pub fn bus_spawn(arg0: i32, arg1: i32) -> i32;
+        /// Closes a bus process and releases all associated resources
+        pub fn bus_close(arg0: i32) -> i32;
+        /// Invokes a call within a running bus process.
+        pub fn bus_invoke(
+            arg0: i32,
+            arg1: i32,
+            arg2: i32,
+            arg3: i32,
+            arg4: i32,
+            arg5: i32,
+            arg6: i32,
+            arg7: i32,
+        ) -> i32;
+        /// Causes a fault on a particular call that was made
+        /// to this process from another process; where 'bid'
+        /// is the callering process context.
+        pub fn bus_fault(arg0: i32, arg1: i32) -> i32;
+        /// Closes a bus call based on its bus call handle
+        pub fn bus_drop(arg0: i32) -> i32;
+        /// Replies to a call that was made to this process
+        /// from another process; where 'cid' is the call context.
+        /// This will may also drop the handle and release any
+        /// associated resources (if keepalive is not set)
+        pub fn bus_reply(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        /// Invokes a callback within the calling process against
+        /// a particular bus call represented by 'cid'.
+        pub fn bus_callback(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32) -> i32;
+        /// Tells the operating system that this process is
+        /// now listening for bus calls on a particular topic
+        pub fn bus_listen(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        /// Polls for any outstanding events from a particular
+        /// bus process by its handle
+        pub fn bus_poll(arg0: i32, arg1: i64, arg2: i32, arg3: i32, arg4: i32) -> i32;
+        /// Receives the next event data from the bus
+        pub fn bus_poll_data(
+            arg0: i32,
+            arg1: i32,
+            arg2: i32,
+            arg3: i32,
+            arg4: i32,
+            arg5: i32,
+            arg6: i32,
+        ) -> i32;
+        /// Connects to a websocket at a particular network URL
+        pub fn ws_connect(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        /// Makes a HTTP request to a remote web resource and
+        /// returns a socket handles that are used to send and receive data
+        pub fn http_request(
+            arg0: i32,
+            arg1: i32,
+            arg2: i32,
+            arg3: i32,
+            arg4: i32,
+            arg5: i32,
+            arg6: i32,
+            arg7: i32,
+            arg8: i32,
+            arg9: i32,
+        ) -> i32;
+        /// Retrieves the status of a HTTP request
+        pub fn http_status(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32) -> i32;
+        /// Returns the next HTTP response header received from
+        /// the http server
+        pub fn http_header(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32, arg5: i32)
+            -> i32;
         /// Shut down socket send and receive channels.
         /// Note: This is similar to `shutdown` in POSIX.
         pub fn sock_shutdown(arg0: i32, arg1: i32) -> i32;
+        /// Returns the current status of a socket
+        pub fn sock_status(arg0: i32, arg1: i32) -> i32;
         /// Returns the local address to which the socket is bound.
         ///
         /// Note: This is similar to `getsockname` in POSIX
         ///
         /// When successful, the contents of the output buffer consist of an IP address,
         /// either IP4 or IP6.
-        pub fn sock_addr_local(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        pub fn sock_addr_local(arg0: i32, arg1: i32) -> i32;
         /// Returns the remote address to which the socket is connected to.
         ///
         /// Note: This is similar to `getpeername` in POSIX
         ///
         /// When successful, the contents of the output buffer consist of an IP address,
         /// either IP4 or IP6.
-        pub fn sock_addr_remote(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        pub fn sock_addr_remote(arg0: i32, arg1: i32) -> i32;
         /// Create an endpoint for communication.
+        ///
         /// creates an endpoint for communication and returns a file descriptor
-        /// tor that refers to that endpoint.  The file descriptor returned by a successful
+        /// tor that refers to that endpoint. The file descriptor returned by a successful
         /// call will be the lowest-numbered file descriptor not currently open
         /// for the process.
         ///
@@ -2936,7 +4078,6 @@ pub mod wasi_snapshot_preview1 {
             arg3: i32,
             arg4: i32,
             arg5: i32,
-            arg6: i32,
         ) -> i32;
         /// Send a message on a socket.
         /// Note: This is similar to `send` in POSIX.
@@ -2951,23 +4092,13 @@ pub mod wasi_snapshot_preview1 {
             arg4: i32,
             arg5: i32,
         ) -> i32;
-        /// Resolves a hostname and a port to one or more IP addresses. Port is optional
-        /// and you can pass 0 (zero) in most cases, it is used a hint for protocol.
+        /// Resolves a hostname and a port to one or more IP addresses.
         ///
         /// Note: This is similar to `getaddrinfo` in POSIX
         ///
         /// When successful, the contents of the output buffer consist of a sequence of
         /// IPv4 and/or IPv6 addresses. Each address entry consists of a addr_t object.
-        /// This function fills the output buffer as much as possible, potentially
-        /// truncating the last address entry.
-        pub fn sock_resolve(
-            arg0: i32,
-            arg1: i32,
-            arg2: i32,
-            arg3: i32,
-            arg4: i32,
-            arg5: i32,
-            arg6: i32,
-        ) -> i32;
+        /// This function fills the output buffer as much as possible.
+        pub fn resolve(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32) -> i32;
     }
 }
