@@ -541,6 +541,7 @@ impl fmt::Debug for Option {
 
 pub type Fd = u32;
 pub type Pid = u32;
+pub type Tid = u32;
 pub type Bid = u32;
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -2802,17 +2803,32 @@ pub unsafe fn pwd_set(path: &str) -> Result<(), Errno> {
     }
 }
 
-/// Creates a new thread by spawning a new process that shares the same
-/// memory address space, file handles and main event loops
+/// Creates a new thread by spawning that shares the same
+/// memory address space, file handles and main event loops.
+/// The function referenced by the fork call must be
+/// exported by the web assembly process.
 ///
-/// The return value is either 0 which indicates this is the child process
-/// or its a positive PID that gives a handle to the child thread that was
-/// created
-pub unsafe fn thread_fork() -> Result<Pid, Errno> {
-    let mut rp0 = MaybeUninit::<Pid>::uninit();
-    let ret = wasix_snapshot_preview1::thread_fork(rp0.as_mut_ptr() as i32);
+/// ## Parameters
+///
+/// * `name` - Name of the function that will be invoked as a new thread
+/// * `reactor` - Indicates if the function will operate as a reactor or
+///   as a normal thread. Reactors will be repeatable called
+///   whenever IO work is available to be processed.
+///
+/// ## Return
+///
+/// Returns the thread index of the newly created thread
+/// (indices always start from zero)
+pub unsafe fn thread_fork(name: &str, reactor: Bool) -> Result<Tid, Errno> {
+    let mut rp0 = MaybeUninit::<Tid>::uninit();
+    let ret = wasix_snapshot_preview1::thread_fork(
+        name.as_ptr() as i32,
+        name.len() as i32,
+        reactor.0 as i32,
+        rp0.as_mut_ptr() as i32,
+    );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Pid)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Tid)),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -2822,21 +2838,21 @@ pub unsafe fn thread_fork() -> Result<Pid, Errno> {
 /// ## Parameters
 ///
 /// * `duration` - Amount of time that the thread should sleep
-pub unsafe fn thread_sleep(duration: Timestamp) -> Result<Pid, Errno> {
-    let mut rp0 = MaybeUninit::<Pid>::uninit();
-    let ret = wasix_snapshot_preview1::thread_sleep(duration as i64, rp0.as_mut_ptr() as i32);
+pub unsafe fn thread_sleep(duration: Timestamp) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::thread_sleep(duration as i64);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Pid)),
+        0 => Ok(()),
         _ => Err(Errno(ret as u16)),
     }
 }
 
-/// Returns the handle of the current thread
-pub unsafe fn thread_id() -> Result<Pid, Errno> {
-    let mut rp0 = MaybeUninit::<Pid>::uninit();
+/// Returns the index of the current thread
+/// (threads indices are sequencial from zero)
+pub unsafe fn thread_id() -> Result<Tid, Errno> {
+    let mut rp0 = MaybeUninit::<Tid>::uninit();
     let ret = wasix_snapshot_preview1::thread_id(rp0.as_mut_ptr() as i32);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Pid)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Tid)),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -3892,16 +3908,15 @@ pub mod wasix_snapshot_preview1 {
         pub fn pwd_get(arg0: i32, arg1: i32, arg2: i32) -> i32;
         /// Sets the current working directory
         pub fn pwd_set(arg0: i32, arg1: i32) -> i32;
-        /// Creates a new thread by spawning a new process that shares the same
-        /// memory address space, file handles and main event loops
-        ///
-        /// The return value is either 0 which indicates this is the child process
-        /// or its a positive PID that gives a handle to the child thread that was
-        /// created
-        pub fn thread_fork(arg0: i32) -> i32;
+        /// Creates a new thread by spawning that shares the same
+        /// memory address space, file handles and main event loops.
+        /// The function referenced by the fork call must be
+        /// exported by the web assembly process.
+        pub fn thread_fork(arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> i32;
         /// Sends the current thread to sleep for a period of time
-        pub fn thread_sleep(arg0: i64, arg1: i32) -> i32;
-        /// Returns the handle of the current thread
+        pub fn thread_sleep(arg0: i64) -> i32;
+        /// Returns the index of the current thread
+        /// (threads indices are sequencial from zero)
         pub fn thread_id(arg0: i32) -> i32;
         /// Terminates the current running thread, if this is the last thread then
         /// the process will also exit with the specified exit code. An exit code
