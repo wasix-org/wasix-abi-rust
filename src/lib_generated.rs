@@ -1682,6 +1682,10 @@ pub const SOCK_OPTION_NODELAY: SockOption = SockOption(2);
 pub const SOCK_OPTION_ONLY_V6: SockOption = SockOption(3);
 /// Broadcast
 pub const SOCK_OPTION_BROADCAST: SockOption = SockOption(4);
+/// Multicast Loop IPv4
+pub const SOCK_OPTION_MULTICAST_LOOP_V4: SockOption = SockOption(5);
+/// Multicast Loop IPv6
+pub const SOCK_OPTION_MULTICAST_LOOP_V6: SockOption = SockOption(6);
 impl SockOption {
     pub const fn raw(&self) -> u8 {
         self.0
@@ -1694,6 +1698,8 @@ impl SockOption {
             2 => "NODELAY",
             3 => "ONLY_V6",
             4 => "BROADCAST",
+            5 => "MULTICAST_LOOP_V4",
+            6 => "MULTICAST_LOOP_V6",
             _ => unsafe { core::hint::unreachable_unchecked() },
         }
     }
@@ -1704,6 +1710,8 @@ impl SockOption {
             2 => "No delay",
             3 => "Only accept IPv6",
             4 => "Broadcast",
+            5 => "Multicast Loop IPv4",
+            6 => "Multicast Loop IPv6",
             _ => unsafe { core::hint::unreachable_unchecked() },
         }
     }
@@ -3657,6 +3665,127 @@ pub unsafe fn sock_get_ttl(fd: Fd) -> Result<Size, Errno> {
     }
 }
 
+/// Set TTL for IPv4 multicast for this socket
+///
+/// ## Parameters
+///
+/// * `fd` - Socket descriptor
+/// * `ttl` - Time to live
+pub unsafe fn sock_set_multicast_ttl_v4(fd: Fd, ttl: Size) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::sock_set_multicast_ttl_v4(fd as i32, ttl as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Retrieve the TTL for IPv4 multicast for this socket
+///
+/// ## Parameters
+///
+/// * `fd` - Socket descriptor
+pub unsafe fn sock_get_multicast_ttl_v4(fd: Fd) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
+    let ret =
+        wasix_snapshot_preview1::sock_get_multicast_ttl_v4(fd as i32, rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Joins a particular multicast IPv4 group
+///
+/// ## Parameters
+///
+/// * `fd` - Socket descriptor
+/// * `multiaddr` - Multicast group to joined
+/// * `interface` - Interface that will join
+pub unsafe fn sock_join_multicast_v4(
+    fd: Fd,
+    multiaddr: AddrIp4,
+    interface: AddrIp4,
+) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::sock_join_multicast_v4(
+        fd as i32,
+        &multiaddr as *const _ as i32,
+        &interface as *const _ as i32,
+    );
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Leaves a particular multicast IPv4 group
+///
+/// ## Parameters
+///
+/// * `fd` - Socket descriptor
+/// * `multiaddr` - Multicast group to leave
+/// * `interface` - Interface that will left
+pub unsafe fn sock_leave_multicast_v4(
+    fd: Fd,
+    multiaddr: AddrIp4,
+    interface: AddrIp4,
+) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::sock_leave_multicast_v4(
+        fd as i32,
+        &multiaddr as *const _ as i32,
+        &interface as *const _ as i32,
+    );
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Joins a particular multicast IPv6 group
+///
+/// ## Parameters
+///
+/// * `fd` - Socket descriptor
+/// * `multiaddr` - Multicast group to joined
+/// * `interface` - Interface that will join
+pub unsafe fn sock_join_multicast_v6(
+    fd: Fd,
+    multiaddr: AddrIp6,
+    interface: u32,
+) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::sock_join_multicast_v6(
+        fd as i32,
+        &multiaddr as *const _ as i32,
+        interface as i32,
+    );
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Leaves a particular multicast IPv6 group
+///
+/// ## Parameters
+///
+/// * `fd` - Socket descriptor
+/// * `multiaddr` - Multicast group to leave
+/// * `interface` - Interface that will left
+pub unsafe fn sock_leave_multicast_v6(
+    fd: Fd,
+    multiaddr: AddrIp6,
+    interface: u32,
+) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::sock_leave_multicast_v6(
+        fd as i32,
+        &multiaddr as *const _ as i32,
+        interface as i32,
+    );
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
 /// Set size of receive buffer
 /// Note: This is similar to `setsockopt` in POSIX for SO_RCVBUF
 ///
@@ -4306,6 +4435,18 @@ pub mod wasix_snapshot_preview1 {
         pub fn sock_set_ttl(arg0: i32, arg1: i32) -> i32;
         /// Retrieve the TTL for this socket
         pub fn sock_get_ttl(arg0: i32, arg1: i32) -> i32;
+        /// Set TTL for IPv4 multicast for this socket
+        pub fn sock_set_multicast_ttl_v4(arg0: i32, arg1: i32) -> i32;
+        /// Retrieve the TTL for IPv4 multicast for this socket
+        pub fn sock_get_multicast_ttl_v4(arg0: i32, arg1: i32) -> i32;
+        /// Joins a particular multicast IPv4 group
+        pub fn sock_join_multicast_v4(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        /// Leaves a particular multicast IPv4 group
+        pub fn sock_leave_multicast_v4(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        /// Joins a particular multicast IPv6 group
+        pub fn sock_join_multicast_v6(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        /// Leaves a particular multicast IPv6 group
+        pub fn sock_leave_multicast_v6(arg0: i32, arg1: i32, arg2: i32) -> i32;
         /// Set size of receive buffer
         /// Note: This is similar to `setsockopt` in POSIX for SO_RCVBUF
         pub fn sock_set_recv_buf_size(arg0: i32, arg1: i32) -> i32;
