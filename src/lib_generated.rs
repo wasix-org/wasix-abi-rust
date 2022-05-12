@@ -539,6 +539,19 @@ impl fmt::Debug for Option {
     }
 }
 
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union OptionTimestampU {
+    pub none: u8,
+    pub some: Timestamp,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct OptionTimestamp {
+    pub tag: u8,
+    pub u: OptionTimestampU,
+}
+
 pub type Fd = u32;
 pub type Pid = u32;
 pub type Tid = u32;
@@ -1102,10 +1115,10 @@ impl fmt::Debug for BusError {
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct PipeHandles {
-    /// File handle for data that goes into the pipe
-    pub pipe_in: Fd,
-    /// File handle for data that comes out of hte pipe
-    pub pipe_out: Fd,
+    /// File handle for data on one side of the pipe
+    pub pipe: Fd,
+    /// File handle for data on the other side of hte pipe
+    pub other: Fd,
 }
 #[repr(transparent)]
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
@@ -1656,6 +1669,47 @@ impl fmt::Debug for SockStatus {
     }
 }
 
+#[repr(transparent)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct SockOption(u8);
+/// Reuse Port
+pub const SOCK_OPTION_REUSE_PORT: SockOption = SockOption(0);
+/// Reuse Address
+pub const SOCK_OPTION_REUSE_ADDR: SockOption = SockOption(1);
+/// No delay
+pub const SOCK_OPTION_NODELAY: SockOption = SockOption(2);
+impl SockOption {
+    pub const fn raw(&self) -> u8 {
+        self.0
+    }
+
+    pub fn name(&self) -> &'static str {
+        match self.0 {
+            0 => "REUSE_PORT",
+            1 => "REUSE_ADDR",
+            2 => "NODELAY",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+    pub fn message(&self) -> &'static str {
+        match self.0 {
+            0 => "Reuse Port",
+            1 => "Reuse Address",
+            2 => "No delay",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+}
+impl fmt::Debug for SockOption {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SockOption")
+            .field("code", &self.0)
+            .field("name", &self.name())
+            .field("message", &self.message())
+            .finish()
+    }
+}
+
 pub type IpPort = u16;
 #[repr(transparent)]
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
@@ -1800,6 +1854,14 @@ pub struct AcceptedSocket {
     pub addr: AddrPort,
 }
 #[repr(C)]
+#[derive(Copy, Clone)]
+pub struct ReceivedData {
+    /// Amount of data that was received
+    pub size: Size,
+    /// Peer socket address
+    pub addr: AddrPort,
+}
+#[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct HttpHeaderSizes {
     /// Header name length
@@ -1834,6 +1896,8 @@ pub type Sdflags = u8;
 pub const SDFLAGS_RD: Sdflags = 1 << 0;
 /// Disables further send operations.
 pub const SDFLAGS_WR: Sdflags = 1 << 1;
+/// Disables both receive and send operations.
+pub const SDFLAGS_RDWR: Sdflags = 1 << 2;
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
@@ -2318,6 +2382,16 @@ pub unsafe fn fd_renumber(fd: Fd, to: Fd) -> Result<(), Errno> {
     }
 }
 
+/// Atomically duplicate a file handle.
+pub unsafe fn fd_dup(fd: Fd) -> Result<Fd, Errno> {
+    let mut rp0 = MaybeUninit::<Fd>::uninit();
+    let ret = wasix_snapshot_preview1::fd_dup(fd as i32, rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
 /// Move the offset of a file descriptor.
 /// Note: This is similar to `lseek` in POSIX.
 ///
@@ -2389,6 +2463,8 @@ pub unsafe fn fd_write(fd: Fd, iovs: CiovecArray<'_>) -> Result<Size, Errno> {
 }
 
 /// Opens a pipe with two file handles
+///
+/// Pipes are bidirectional meaning
 pub unsafe fn pipe() -> Result<PipeHandles, Errno> {
     let mut rp0 = MaybeUninit::<PipeHandles>::uninit();
     let ret = wasix_snapshot_preview1::pipe(rp0.as_mut_ptr() as i32);
@@ -3436,62 +3512,65 @@ pub unsafe fn sock_open(af: AddressFamily, socktype: SockType) -> Result<Fd, Err
     }
 }
 
-/// Enable/disable address reuse on a socket
+/// Sets a particular socket setting
 /// Note: This is similar to `setsockopt` in POSIX for SO_REUSEADDR
 ///
 /// ## Parameters
 ///
 /// * `fd` - Socket descriptor
-/// * `reuse` - Should the socket reuse addresses
-pub unsafe fn sock_set_reuse_addr(fd: Fd, reuse: Bool) -> Result<(), Errno> {
-    let ret = wasix_snapshot_preview1::sock_set_reuse_addr(fd as i32, reuse.0 as i32);
+/// * `sockopt` - Socket option to be set
+/// * `reuse` - Value to set the option to
+pub unsafe fn sock_set_opt(fd: Fd, sockopt: SockOption, reuse: Bool) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::sock_set_opt(fd as i32, sockopt.0 as i32, reuse.0 as i32);
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
     }
 }
 
-/// Retrieve status of address reuse on a socket
+/// Retrieve status of particular socket seting
 /// Note: This is similar to `getsockopt` in POSIX for SO_REUSEADDR
 ///
 /// ## Parameters
 ///
 /// * `fd` - Socket descriptor
-pub unsafe fn sock_get_reuse_addr(fd: Fd) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasix_snapshot_preview1::sock_get_reuse_addr(fd as i32, rp0.as_mut_ptr() as i32);
+/// * `sockopt` - Socket option to be retrieved
+pub unsafe fn sock_get_opt(fd: Fd, sockopt: SockOption) -> Result<Bool, Errno> {
+    let mut rp0 = MaybeUninit::<Bool>::uninit();
+    let ret =
+        wasix_snapshot_preview1::sock_get_opt(fd as i32, sockopt.0 as i32, rp0.as_mut_ptr() as i32);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Bool)),
         _ => Err(Errno(ret as u16)),
     }
 }
 
-/// Enable port reuse on a socket
-/// Note: This is similar to `setsockopt` in POSIX for SO_REUSEPORT
+/// Sets how long the socket will linger
 ///
 /// ## Parameters
 ///
 /// * `fd` - Socket descriptor
-/// * `reuse` - Should the socket reuse ports
-pub unsafe fn sock_set_reuse_port(fd: Fd, reuse: Bool) -> Result<(), Errno> {
-    let ret = wasix_snapshot_preview1::sock_set_reuse_port(fd as i32, reuse.0 as i32);
+/// * `reuse` - Value to set the linger to
+pub unsafe fn sock_set_linger(fd: Fd, reuse: OptionTimestamp) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::sock_set_linger(fd as i32, &reuse as *const _ as i32);
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
     }
 }
 
-/// Retrieve status of port reuse on a socket
-/// Note: This is similar to `getsockopt` in POSIX for SO_REUSEPORT
+/// Retrieve how long the socket will linger for
 ///
 /// ## Parameters
 ///
 /// * `fd` - Socket descriptor
-pub unsafe fn sock_get_reuse_port(fd: Fd) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasix_snapshot_preview1::sock_get_reuse_port(fd as i32, rp0.as_mut_ptr() as i32);
+pub unsafe fn sock_get_linger(fd: Fd) -> Result<OptionTimestamp, Errno> {
+    let mut rp0 = MaybeUninit::<OptionTimestamp>::uninit();
+    let ret = wasix_snapshot_preview1::sock_get_linger(fd as i32, rp0.as_mut_ptr() as i32);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
+        0 => Ok(core::ptr::read(
+            rp0.as_mut_ptr() as i32 as *const OptionTimestamp
+        )),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -3662,26 +3741,25 @@ pub unsafe fn sock_recv(
 /// ## Parameters
 ///
 /// * `buf` - The buffer where data will be stored
-/// * `addr` - The address of origin for the message
 /// * `flags` - Message flags.
 pub unsafe fn sock_recv_from(
     fd: Fd,
     buf: *mut u8,
     buf_len: Size,
-    addr: *mut AddrPort,
     flags: Riflags,
-) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
+) -> Result<ReceivedData, Errno> {
+    let mut rp0 = MaybeUninit::<ReceivedData>::uninit();
     let ret = wasix_snapshot_preview1::sock_recv_from(
         fd as i32,
         buf as i32,
         buf_len as i32,
-        addr as i32,
         flags as i32,
         rp0.as_mut_ptr() as i32,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
+        0 => Ok(core::ptr::read(
+            rp0.as_mut_ptr() as i32 as *const ReceivedData
+        )),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -3860,6 +3938,8 @@ pub mod wasix_snapshot_preview1 {
         /// This function provides a way to atomically renumber file descriptors, which
         /// would disappear if `dup2()` were to be removed entirely.
         pub fn fd_renumber(arg0: i32, arg1: i32) -> i32;
+        /// Atomically duplicate a file handle.
+        pub fn fd_dup(arg0: i32, arg1: i32) -> i32;
         /// Move the offset of a file descriptor.
         /// Note: This is similar to `lseek` in POSIX.
         pub fn fd_seek(arg0: i32, arg1: i64, arg2: i32, arg3: i32) -> i32;
@@ -3873,6 +3953,8 @@ pub mod wasix_snapshot_preview1 {
         /// Note: This is similar to `writev` in POSIX.
         pub fn fd_write(arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> i32;
         /// Opens a pipe with two file handles
+        ///
+        /// Pipes are bidirectional meaning
         pub fn pipe(arg0: i32) -> i32;
         /// Create a directory.
         /// Note: This is similar to `mkdirat` in POSIX.
@@ -4124,18 +4206,16 @@ pub mod wasix_snapshot_preview1 {
         ///
         /// Note: This is similar to `socket` in POSIX using PF_INET
         pub fn sock_open(arg0: i32, arg1: i32, arg2: i32) -> i32;
-        /// Enable/disable address reuse on a socket
+        /// Sets a particular socket setting
         /// Note: This is similar to `setsockopt` in POSIX for SO_REUSEADDR
-        pub fn sock_set_reuse_addr(arg0: i32, arg1: i32) -> i32;
-        /// Retrieve status of address reuse on a socket
+        pub fn sock_set_opt(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        /// Retrieve status of particular socket seting
         /// Note: This is similar to `getsockopt` in POSIX for SO_REUSEADDR
-        pub fn sock_get_reuse_addr(arg0: i32, arg1: i32) -> i32;
-        /// Enable port reuse on a socket
-        /// Note: This is similar to `setsockopt` in POSIX for SO_REUSEPORT
-        pub fn sock_set_reuse_port(arg0: i32, arg1: i32) -> i32;
-        /// Retrieve status of port reuse on a socket
-        /// Note: This is similar to `getsockopt` in POSIX for SO_REUSEPORT
-        pub fn sock_get_reuse_port(arg0: i32, arg1: i32) -> i32;
+        pub fn sock_get_opt(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        /// Sets how long the socket will linger
+        pub fn sock_set_linger(arg0: i32, arg1: i32) -> i32;
+        /// Retrieve how long the socket will linger for
+        pub fn sock_get_linger(arg0: i32, arg1: i32) -> i32;
         /// Set size of receive buffer
         /// Note: This is similar to `setsockopt` in POSIX for SO_RCVBUF
         pub fn sock_set_recv_buf_size(arg0: i32, arg1: i32) -> i32;
@@ -4176,14 +4256,7 @@ pub mod wasix_snapshot_preview1 {
         /// The address buffer must be at least the size of addr_t.
         ///
         /// Note: This is similar to `recvfrom` in POSIX.
-        pub fn sock_recv_from(
-            arg0: i32,
-            arg1: i32,
-            arg2: i32,
-            arg3: i32,
-            arg4: i32,
-            arg5: i32,
-        ) -> i32;
+        pub fn sock_recv_from(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32) -> i32;
         /// Send a message on a socket.
         /// Note: This is similar to `send` in POSIX.
         pub fn sock_send(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32) -> i32;
