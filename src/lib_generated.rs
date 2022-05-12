@@ -3587,11 +3587,11 @@ pub unsafe fn sock_listen(fd: Fd, backlog: Size) -> Result<(), Errno> {
 ///
 /// ## Parameters
 ///
-/// * `addr` - The address of peer socket
 /// * `fd` - File descriptor of the socket to be bind
-pub unsafe fn sock_accept(addr: *mut AddrPort, fd: Fd) -> Result<Fd, Errno> {
+/// * `addr` - The address of peer socket
+pub unsafe fn sock_accept(fd: Fd, addr: *mut AddrPort) -> Result<Fd, Errno> {
     let mut rp0 = MaybeUninit::<Fd>::uninit();
-    let ret = wasix_snapshot_preview1::sock_accept(addr as i32, fd as i32, rp0.as_mut_ptr() as i32);
+    let ret = wasix_snapshot_preview1::sock_accept(fd as i32, addr as i32, rp0.as_mut_ptr() as i32);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd)),
         _ => Err(Errno(ret as u16)),
