@@ -1896,8 +1896,6 @@ pub type Sdflags = u8;
 pub const SDFLAGS_RD: Sdflags = 1 << 0;
 /// Disables further send operations.
 pub const SDFLAGS_WR: Sdflags = 1 << 1;
-/// Disables both receive and send operations.
-pub const SDFLAGS_RDWR: Sdflags = 1 << 2;
 
 pub type TimeoutType = u8;
 /// Read operation timeout
