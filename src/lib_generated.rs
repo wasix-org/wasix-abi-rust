@@ -1899,6 +1899,16 @@ pub const SDFLAGS_WR: Sdflags = 1 << 1;
 /// Disables both receive and send operations.
 pub const SDFLAGS_RDWR: Sdflags = 1 << 2;
 
+pub type TimeoutType = u8;
+/// Read operation timeout
+pub const TIMEOUT_TYPE_READ: TimeoutType = 1 << 0;
+/// Write operation timeout
+pub const TIMEOUT_TYPE_WRITE: TimeoutType = 1 << 1;
+/// Connections to other sockets
+pub const TIMEOUT_TYPE_CONNECT: TimeoutType = 1 << 2;
+/// Accept connection timeout
+pub const TIMEOUT_TYPE_ACCEPT: TimeoutType = 1 << 3;
+
 #[repr(transparent)]
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Preopentype(u8);
@@ -3575,6 +3585,70 @@ pub unsafe fn sock_get_linger(fd: Fd) -> Result<OptionTimestamp, Errno> {
     }
 }
 
+/// Sets one of the timeouts on the socket
+///
+/// ## Parameters
+///
+/// * `fd` - Socket descriptor
+/// * `ty` - Type of timeout to be changed
+/// * `reuse` - Value to set the timeout to
+pub unsafe fn sock_set_timeout(
+    fd: Fd,
+    ty: TimeoutType,
+    reuse: OptionTimestamp,
+) -> Result<(), Errno> {
+    let ret =
+        wasix_snapshot_preview1::sock_set_timeout(fd as i32, ty as i32, &reuse as *const _ as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Retrieve one of the timeouts on the socket
+///
+/// ## Parameters
+///
+/// * `fd` - Socket descriptor
+/// * `ty` - Type of timeout to be retrieved
+pub unsafe fn sock_get_timeout(fd: Fd, ty: TimeoutType) -> Result<Timestamp, Errno> {
+    let mut rp0 = MaybeUninit::<Timestamp>::uninit();
+    let ret =
+        wasix_snapshot_preview1::sock_get_timeout(fd as i32, ty as i32, rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Timestamp)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Set TTL for this socket
+///
+/// ## Parameters
+///
+/// * `fd` - Socket descriptor
+/// * `ttl` - Time to live
+pub unsafe fn sock_set_ttl(fd: Fd, ttl: Size) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::sock_set_ttl(fd as i32, ttl as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Retrieve the TTL for this socket
+///
+/// ## Parameters
+///
+/// * `fd` - Socket descriptor
+pub unsafe fn sock_get_ttl(fd: Fd) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
+    let ret = wasix_snapshot_preview1::sock_get_ttl(fd as i32, rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
 /// Set size of receive buffer
 /// Note: This is similar to `setsockopt` in POSIX for SO_RCVBUF
 ///
@@ -4216,6 +4290,14 @@ pub mod wasix_snapshot_preview1 {
         pub fn sock_set_linger(arg0: i32, arg1: i32) -> i32;
         /// Retrieve how long the socket will linger for
         pub fn sock_get_linger(arg0: i32, arg1: i32) -> i32;
+        /// Sets one of the timeouts on the socket
+        pub fn sock_set_timeout(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        /// Retrieve one of the timeouts on the socket
+        pub fn sock_get_timeout(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        /// Set TTL for this socket
+        pub fn sock_set_ttl(arg0: i32, arg1: i32) -> i32;
+        /// Retrieve the TTL for this socket
+        pub fn sock_get_ttl(arg0: i32, arg1: i32) -> i32;
         /// Set size of receive buffer
         /// Note: This is similar to `setsockopt` in POSIX for SO_RCVBUF
         pub fn sock_set_recv_buf_size(arg0: i32, arg1: i32) -> i32;
