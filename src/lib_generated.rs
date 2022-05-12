@@ -4023,8 +4023,8 @@ pub unsafe fn sock_send(
 /// ## Parameters
 ///
 /// * `si_data` - List of scatter/gather vectors to which to retrieve data
-/// * `addr` - Address of the socket to send message to
 /// * `si_flags` - Message flags.
+/// * `addr` - Address of the socket to send message to
 ///
 /// ## Return
 ///
@@ -4032,16 +4032,16 @@ pub unsafe fn sock_send(
 pub unsafe fn sock_send_to(
     fd: Fd,
     si_data: CiovecArray<'_>,
-    addr: AddrPort,
     si_flags: Siflags,
+    addr: AddrPort,
 ) -> Result<Size, Errno> {
     let mut rp0 = MaybeUninit::<Size>::uninit();
     let ret = wasix_snapshot_preview1::sock_send_to(
         fd as i32,
         si_data.as_ptr() as i32,
         si_data.len() as i32,
-        &addr as *const _ as i32,
         si_flags as i32,
+        &addr as *const _ as i32,
         rp0.as_mut_ptr() as i32,
     );
     match ret {
