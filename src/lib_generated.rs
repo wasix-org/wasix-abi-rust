@@ -1099,6 +1099,14 @@ impl fmt::Debug for BusError {
     }
 }
 
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct PipeHandles {
+    /// File handle for data that goes into the pipe
+    pub pipe_in: Fd,
+    /// File handle for data that comes out of hte pipe
+    pub pipe_out: Fd,
+}
 #[repr(transparent)]
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct StdioMode(u8);
@@ -2372,6 +2380,18 @@ pub unsafe fn fd_write(fd: Fd, iovs: CiovecArray<'_>) -> Result<Size, Errno> {
     }
 }
 
+/// Opens a pipe with two file handles
+pub unsafe fn pipe() -> Result<PipeHandles, Errno> {
+    let mut rp0 = MaybeUninit::<PipeHandles>::uninit();
+    let ret = wasix_snapshot_preview1::pipe(rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(
+            rp0.as_mut_ptr() as i32 as *const PipeHandles
+        )),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
 /// Create a directory.
 /// Note: This is similar to `mkdirat` in POSIX.
 ///
@@ -2780,10 +2800,10 @@ pub unsafe fn tty_rect(rect: *mut Rect) -> Result<(), Errno> {
 /// ## Return
 ///
 /// Number of bytes returned in the path buffer
-pub unsafe fn pwd_get(path: *mut u8, path_len: Size) -> Result<Size, Errno> {
+pub unsafe fn getcwd(path: *mut u8, path_len: Size) -> Result<Size, Errno> {
     let mut rp0 = MaybeUninit::<Size>::uninit();
     let ret =
-        wasix_snapshot_preview1::pwd_get(path as i32, path_len as i32, rp0.as_mut_ptr() as i32);
+        wasix_snapshot_preview1::getcwd(path as i32, path_len as i32, rp0.as_mut_ptr() as i32);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
         _ => Err(Errno(ret as u16)),
@@ -2795,8 +2815,8 @@ pub unsafe fn pwd_get(path: *mut u8, path_len: Size) -> Result<Size, Errno> {
 /// ## Parameters
 ///
 /// * `path` - Path to change the current working directory to
-pub unsafe fn pwd_set(path: &str) -> Result<(), Errno> {
-    let ret = wasix_snapshot_preview1::pwd_set(path.as_ptr() as i32, path.len() as i32);
+pub unsafe fn chdir(path: &str) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::chdir(path.as_ptr() as i32, path.len() as i32);
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
@@ -2811,6 +2831,7 @@ pub unsafe fn pwd_set(path: &str) -> Result<(), Errno> {
 /// ## Parameters
 ///
 /// * `name` - Name of the function that will be invoked as a new thread
+/// * `user_data` - User data that will be supplied to the function when its called
 /// * `reactor` - Indicates if the function will operate as a reactor or
 ///   as a normal thread. Reactors will be repeatable called
 ///   whenever IO work is available to be processed.
@@ -2819,11 +2840,12 @@ pub unsafe fn pwd_set(path: &str) -> Result<(), Errno> {
 ///
 /// Returns the thread index of the newly created thread
 /// (indices always start from zero)
-pub unsafe fn thread_fork(name: &str, reactor: Bool) -> Result<Tid, Errno> {
+pub unsafe fn thread_spawn(name: &str, user_data: u64, reactor: Bool) -> Result<Tid, Errno> {
     let mut rp0 = MaybeUninit::<Tid>::uninit();
-    let ret = wasix_snapshot_preview1::thread_fork(
+    let ret = wasix_snapshot_preview1::thread_spawn(
         name.as_ptr() as i32,
         name.len() as i32,
+        user_data as i64,
         reactor.0 as i32,
         rp0.as_mut_ptr() as i32,
     );
@@ -2853,6 +2875,41 @@ pub unsafe fn thread_id() -> Result<Tid, Errno> {
     let ret = wasix_snapshot_preview1::thread_id(rp0.as_mut_ptr() as i32);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Tid)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Joins this thread with another thread, blocking this
+/// one until the other finishes
+///
+/// ## Parameters
+///
+/// * `tid` - Handle of the thread to wait on
+pub unsafe fn thread_join(tid: Tid) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::thread_join(tid as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Returns the available parallelism which is normally the
+/// number of available cores that can run concurrently
+pub unsafe fn thread_parallelism() -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
+    let ret = wasix_snapshot_preview1::thread_parallelism(rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Returns the handle of the current process
+pub unsafe fn getpid() -> Result<Pid, Errno> {
+    let mut rp0 = MaybeUninit::<Pid>::uninit();
+    let ret = wasix_snapshot_preview1::getpid(rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Pid)),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -3355,25 +3412,16 @@ pub unsafe fn sock_addr_remote(fd: Fd) -> Result<AddrIp, Errno> {
 ///
 /// ## Parameters
 ///
-/// * `capability` - Capability descriptor
 /// * `af` - Address family
 /// * `socktype` - Socket type, either datagram or stream
 ///
 /// ## Return
 ///
 /// The file descriptor of the socket that has been opened.
-pub unsafe fn sock_open(
-    capability: Fd,
-    af: AddressFamily,
-    socktype: SockType,
-) -> Result<Fd, Errno> {
+pub unsafe fn sock_open(af: AddressFamily, socktype: SockType) -> Result<Fd, Errno> {
     let mut rp0 = MaybeUninit::<Fd>::uninit();
-    let ret = wasix_snapshot_preview1::sock_open(
-        capability as i32,
-        af.0 as i32,
-        socktype.0 as i32,
-        rp0.as_mut_ptr() as i32,
-    );
+    let ret =
+        wasix_snapshot_preview1::sock_open(af.0 as i32, socktype.0 as i32, rp0.as_mut_ptr() as i32);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd)),
         _ => Err(Errno(ret as u16)),
@@ -3516,6 +3564,10 @@ pub unsafe fn sock_bind(fd: Fd, addr: AddrPort) -> Result<(), Errno> {
 }
 
 /// Listen for connections on a socket
+///
+/// Polling the socket handle will wait until a connection
+/// attempt is made
+///
 /// Note: This is similar to `listen`
 ///
 /// ## Parameters
@@ -3535,10 +3587,11 @@ pub unsafe fn sock_listen(fd: Fd, backlog: Size) -> Result<(), Errno> {
 ///
 /// ## Parameters
 ///
+/// * `addr` - The address of peer socket
 /// * `fd` - File descriptor of the socket to be bind
-pub unsafe fn sock_accept(fd: Fd) -> Result<Fd, Errno> {
+pub unsafe fn sock_accept(addr: *mut AddrPort, fd: Fd) -> Result<Fd, Errno> {
     let mut rp0 = MaybeUninit::<Fd>::uninit();
-    let ret = wasix_snapshot_preview1::sock_accept(fd as i32, rp0.as_mut_ptr() as i32);
+    let ret = wasix_snapshot_preview1::sock_accept(addr as i32, fd as i32, rp0.as_mut_ptr() as i32);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd)),
         _ => Err(Errno(ret as u16)),
@@ -3546,6 +3599,10 @@ pub unsafe fn sock_accept(fd: Fd) -> Result<Fd, Errno> {
 }
 
 /// Initiate a connection on a socket to the specified address
+///
+/// Polling the socket handle will wait for data to arrive or for
+/// the socket status to change which can be queried via 'sock_status'
+///
 /// Note: This is similar to `connect` in POSIX
 ///
 /// ## Parameters
@@ -3806,6 +3863,8 @@ pub mod wasix_snapshot_preview1 {
         /// Write to a file descriptor.
         /// Note: This is similar to `writev` in POSIX.
         pub fn fd_write(arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> i32;
+        /// Opens a pipe with two file handles
+        pub fn pipe(arg0: i32) -> i32;
         /// Create a directory.
         /// Note: This is similar to `mkdirat` in POSIX.
         pub fn path_create_directory(arg0: i32, arg1: i32, arg2: i32) -> i32;
@@ -3905,19 +3964,27 @@ pub mod wasix_snapshot_preview1 {
         /// Retrieves the rect of the TTY display
         pub fn tty_rect(arg0: i32) -> i32;
         /// Returns the current working directory
-        pub fn pwd_get(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        pub fn getcwd(arg0: i32, arg1: i32, arg2: i32) -> i32;
         /// Sets the current working directory
-        pub fn pwd_set(arg0: i32, arg1: i32) -> i32;
+        pub fn chdir(arg0: i32, arg1: i32) -> i32;
         /// Creates a new thread by spawning that shares the same
         /// memory address space, file handles and main event loops.
         /// The function referenced by the fork call must be
         /// exported by the web assembly process.
-        pub fn thread_fork(arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> i32;
+        pub fn thread_spawn(arg0: i32, arg1: i32, arg2: i64, arg3: i32, arg4: i32) -> i32;
         /// Sends the current thread to sleep for a period of time
         pub fn thread_sleep(arg0: i64) -> i32;
         /// Returns the index of the current thread
         /// (threads indices are sequencial from zero)
         pub fn thread_id(arg0: i32) -> i32;
+        /// Joins this thread with another thread, blocking this
+        /// one until the other finishes
+        pub fn thread_join(arg0: i32) -> i32;
+        /// Returns the available parallelism which is normally the
+        /// number of available cores that can run concurrently
+        pub fn thread_parallelism(arg0: i32) -> i32;
+        /// Returns the handle of the current process
+        pub fn getpid(arg0: i32) -> i32;
         /// Terminates the current running thread, if this is the last thread then
         /// the process will also exit with the specified exit code. An exit code
         /// of 0 indicates successful termination of the thread. The meanings of
@@ -4047,7 +4114,7 @@ pub mod wasix_snapshot_preview1 {
         /// for the process.
         ///
         /// Note: This is similar to `socket` in POSIX using PF_INET
-        pub fn sock_open(arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> i32;
+        pub fn sock_open(arg0: i32, arg1: i32, arg2: i32) -> i32;
         /// Enable/disable address reuse on a socket
         /// Note: This is similar to `setsockopt` in POSIX for SO_REUSEADDR
         pub fn sock_set_reuse_addr(arg0: i32, arg1: i32) -> i32;
@@ -4076,12 +4143,20 @@ pub mod wasix_snapshot_preview1 {
         /// Note: This is similar to `bind` in POSIX using PF_INET
         pub fn sock_bind(arg0: i32, arg1: i32) -> i32;
         /// Listen for connections on a socket
+        ///
+        /// Polling the socket handle will wait until a connection
+        /// attempt is made
+        ///
         /// Note: This is similar to `listen`
         pub fn sock_listen(arg0: i32, arg1: i32) -> i32;
         /// Accept a connection on a socket
         /// Note: This is similar to `accept`
-        pub fn sock_accept(arg0: i32, arg1: i32) -> i32;
+        pub fn sock_accept(arg0: i32, arg1: i32, arg2: i32) -> i32;
         /// Initiate a connection on a socket to the specified address
+        ///
+        /// Polling the socket handle will wait for data to arrive or for
+        /// the socket status to change which can be queried via 'sock_status'
+        ///
         /// Note: This is similar to `connect` in POSIX
         pub fn sock_connect(arg0: i32, arg1: i32) -> i32;
         /// Receive a message from a socket.
