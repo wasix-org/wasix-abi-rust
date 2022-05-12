@@ -1792,6 +1792,14 @@ impl fmt::Debug for AddressFamily {
 }
 
 #[repr(C)]
+#[derive(Copy, Clone)]
+pub struct AcceptedSocket {
+    /// Socket handle
+    pub fd: Fd,
+    /// Peer socket address
+    pub addr: AddrPort,
+}
+#[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct HttpHeaderSizes {
     /// Header name length
@@ -3587,13 +3595,14 @@ pub unsafe fn sock_listen(fd: Fd, backlog: Size) -> Result<(), Errno> {
 ///
 /// ## Parameters
 ///
-/// * `fd` - File descriptor of the socket to be bind
-/// * `addr` - The address of peer socket
-pub unsafe fn sock_accept(fd: Fd, addr: *mut AddrPort) -> Result<Fd, Errno> {
-    let mut rp0 = MaybeUninit::<Fd>::uninit();
-    let ret = wasix_snapshot_preview1::sock_accept(fd as i32, addr as i32, rp0.as_mut_ptr() as i32);
+/// * `fd` - File descriptor of the socket that is listening
+pub unsafe fn sock_accept(fd: Fd) -> Result<AcceptedSocket, Errno> {
+    let mut rp0 = MaybeUninit::<AcceptedSocket>::uninit();
+    let ret = wasix_snapshot_preview1::sock_accept(fd as i32, rp0.as_mut_ptr() as i32);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd)),
+        0 => Ok(core::ptr::read(
+            rp0.as_mut_ptr() as i32 as *const AcceptedSocket
+        )),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -4151,7 +4160,7 @@ pub mod wasix_snapshot_preview1 {
         pub fn sock_listen(arg0: i32, arg1: i32) -> i32;
         /// Accept a connection on a socket
         /// Note: This is similar to `accept`
-        pub fn sock_accept(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        pub fn sock_accept(arg0: i32, arg1: i32) -> i32;
         /// Initiate a connection on a socket to the specified address
         ///
         /// Polling the socket handle will wait for data to arrive or for
