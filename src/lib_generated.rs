@@ -1680,6 +1680,8 @@ pub const SOCK_OPTION_REUSE_ADDR: SockOption = SockOption(1);
 pub const SOCK_OPTION_NODELAY: SockOption = SockOption(2);
 /// Only accept IPv6
 pub const SOCK_OPTION_ONLY_V6: SockOption = SockOption(3);
+/// Broadcast
+pub const SOCK_OPTION_BROADCAST: SockOption = SockOption(4);
 impl SockOption {
     pub const fn raw(&self) -> u8 {
         self.0
@@ -1691,6 +1693,7 @@ impl SockOption {
             1 => "REUSE_ADDR",
             2 => "NODELAY",
             3 => "ONLY_V6",
+            4 => "BROADCAST",
             _ => unsafe { core::hint::unreachable_unchecked() },
         }
     }
@@ -1700,6 +1703,7 @@ impl SockOption {
             1 => "Reuse Address",
             2 => "No delay",
             3 => "Only accept IPv6",
+            4 => "Broadcast",
             _ => unsafe { core::hint::unreachable_unchecked() },
         }
     }
