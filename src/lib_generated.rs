@@ -1862,22 +1862,6 @@ impl fmt::Debug for AddressFamily {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone)]
-pub struct AcceptedSocket {
-    /// Socket handle
-    pub fd: Fd,
-    /// Peer socket address
-    pub addr: AddrPort,
-}
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct ReceivedData {
-    /// Amount of data that was received
-    pub size: Size,
-    /// Peer socket address
-    pub addr: AddrPort,
-}
-#[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct HttpHeaderSizes {
     /// Header name length
@@ -3880,18 +3864,30 @@ pub unsafe fn sock_listen(fd: Fd, backlog: Size) -> Result<(), Errno> {
     }
 }
 
-/// Accept a connection on a socket
-/// Note: This is similar to `accept`
+/// Accept a new incoming connection.
+/// Note: This is similar to `accept` in POSIX.
 ///
 /// ## Parameters
 ///
-/// * `fd` - File descriptor of the socket that is listening
-pub unsafe fn sock_accept(fd: Fd) -> Result<AcceptedSocket, Errno> {
-    let mut rp0 = MaybeUninit::<AcceptedSocket>::uninit();
-    let ret = wasix_snapshot_preview1::sock_accept(fd as i32, rp0.as_mut_ptr() as i32);
+/// * `fd` - The listening socket.
+/// * `flags` - The desired values of the file descriptor flags.
+///
+/// ## Return
+///
+/// New socket connection
+pub unsafe fn sock_accept(fd: Fd, flags: Fdflags) -> Result<(Fd, AddrPort), Errno> {
+    let mut rp0 = MaybeUninit::<Fd>::uninit();
+    let mut rp1 = MaybeUninit::<AddrPort>::uninit();
+    let ret = wasix_snapshot_preview1::sock_accept(
+        fd as i32,
+        flags as i32,
+        rp0.as_mut_ptr() as i32,
+        rp1.as_mut_ptr() as i32,
+    );
     match ret {
-        0 => Ok(core::ptr::read(
-            rp0.as_mut_ptr() as i32 as *const AcceptedSocket
+        0 => Ok((
+            core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd),
+            core::ptr::read(rp1.as_mut_ptr() as i32 as *const AddrPort),
         )),
         _ => Err(Errno(ret as u16)),
     }
@@ -3917,82 +3913,103 @@ pub unsafe fn sock_connect(fd: Fd, addr: AddrPort) -> Result<(), Errno> {
 }
 
 /// Receive a message from a socket.
-/// Note: This is similar to `recv` in POSIX.
+/// Note: This is similar to `recv` in POSIX, though it also supports reading
+/// the data into multiple buffers in the manner of `readv`.
 ///
 /// ## Parameters
 ///
-/// * `buf` - The buffer where data will be stored
-/// * `flags` - Message flags.
+/// * `ri_data` - List of scatter/gather vectors to which to store data.
+/// * `ri_flags` - Message flags.
+///
+/// ## Return
+///
+/// Number of bytes stored in ri_data and message flags.
 pub unsafe fn sock_recv(
     fd: Fd,
-    buf: *mut u8,
-    buf_len: Size,
-    flags: Riflags,
-) -> Result<Size, Errno> {
+    ri_data: IovecArray<'_>,
+    ri_flags: Riflags,
+) -> Result<(Size, Roflags), Errno> {
     let mut rp0 = MaybeUninit::<Size>::uninit();
+    let mut rp1 = MaybeUninit::<Roflags>::uninit();
     let ret = wasix_snapshot_preview1::sock_recv(
         fd as i32,
-        buf as i32,
-        buf_len as i32,
-        flags as i32,
+        ri_data.as_ptr() as i32,
+        ri_data.len() as i32,
+        ri_flags as i32,
         rp0.as_mut_ptr() as i32,
+        rp1.as_mut_ptr() as i32,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
+        0 => Ok((
+            core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size),
+            core::ptr::read(rp1.as_mut_ptr() as i32 as *const Roflags),
+        )),
         _ => Err(Errno(ret as u16)),
     }
 }
 
-/// Receive a message from a socket.
-///
-/// The address buffer must be at least the size of addr_t.
-///
-/// Note: This is similar to `recvfrom` in POSIX.
+/// Receive a message and its peer address from a socket.
+/// Note: This is similar to `recvfrom` in POSIX, though it also supports reading
+/// the data into multiple buffers in the manner of `readv`.
 ///
 /// ## Parameters
 ///
-/// * `buf` - The buffer where data will be stored
-/// * `flags` - Message flags.
+/// * `ri_data` - List of scatter/gather vectors to which to store data.
+/// * `ri_flags` - Message flags.
+///
+/// ## Return
+///
+/// Number of bytes stored in ri_data and message flags.
 pub unsafe fn sock_recv_from(
     fd: Fd,
-    buf: *mut u8,
-    buf_len: Size,
-    flags: Riflags,
-) -> Result<ReceivedData, Errno> {
-    let mut rp0 = MaybeUninit::<ReceivedData>::uninit();
+    ri_data: IovecArray<'_>,
+    ri_flags: Riflags,
+) -> Result<(Size, Roflags, AddrPort), Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
+    let mut rp1 = MaybeUninit::<Roflags>::uninit();
+    let mut rp2 = MaybeUninit::<AddrPort>::uninit();
     let ret = wasix_snapshot_preview1::sock_recv_from(
         fd as i32,
-        buf as i32,
-        buf_len as i32,
-        flags as i32,
+        ri_data.as_ptr() as i32,
+        ri_data.len() as i32,
+        ri_flags as i32,
         rp0.as_mut_ptr() as i32,
+        rp1.as_mut_ptr() as i32,
+        rp2.as_mut_ptr() as i32,
     );
     match ret {
-        0 => Ok(core::ptr::read(
-            rp0.as_mut_ptr() as i32 as *const ReceivedData
+        0 => Ok((
+            core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size),
+            core::ptr::read(rp1.as_mut_ptr() as i32 as *const Roflags),
+            core::ptr::read(rp2.as_mut_ptr() as i32 as *const AddrPort),
         )),
         _ => Err(Errno(ret as u16)),
     }
 }
 
 /// Send a message on a socket.
-/// Note: This is similar to `send` in POSIX.
+/// Note: This is similar to `send` in POSIX, though it also supports writing
+/// the data from multiple buffers in the manner of `writev`.
 ///
 /// ## Parameters
 ///
-/// * `buf` - The buffer where data will be stored
-/// * `flags` - Message flags.
+/// * `si_data` - List of scatter/gather vectors to which to retrieve data
+/// * `si_flags` - Message flags.
 ///
 /// ## Return
 ///
 /// Number of bytes transmitted.
-pub unsafe fn sock_send(fd: Fd, buf: BufArray<'_>, flags: Siflags) -> Result<Size, Errno> {
+pub unsafe fn sock_send(
+    fd: Fd,
+    si_data: CiovecArray<'_>,
+    si_flags: Siflags,
+) -> Result<Size, Errno> {
     let mut rp0 = MaybeUninit::<Size>::uninit();
     let ret = wasix_snapshot_preview1::sock_send(
         fd as i32,
-        buf.as_ptr() as i32,
-        buf.len() as i32,
-        flags as i32,
+        si_data.as_ptr() as i32,
+        si_data.len() as i32,
+        si_flags as i32,
         rp0.as_mut_ptr() as i32,
     );
     match ret {
@@ -4001,31 +4018,32 @@ pub unsafe fn sock_send(fd: Fd, buf: BufArray<'_>, flags: Siflags) -> Result<Siz
     }
 }
 
-/// Send a message on a socket.
-/// Note: This is similar to `sendto` in POSIX.
+/// Send a message on a socket to a specific address.
+/// Note: This is similar to `sendto` in POSIX, though it also supports writing
+/// the data from multiple buffers in the manner of `writev`.
 ///
 /// ## Parameters
 ///
-/// * `buf` - The buffer where data will be stored
+/// * `si_data` - List of scatter/gather vectors to which to retrieve data
 /// * `addr` - Address of the socket to send message to
-/// * `flags` - Message flags.
+/// * `si_flags` - Message flags.
 ///
 /// ## Return
 ///
 /// Number of bytes transmitted.
 pub unsafe fn sock_send_to(
     fd: Fd,
-    buf: BufArray<'_>,
+    si_data: CiovecArray<'_>,
     addr: AddrPort,
-    flags: Siflags,
+    si_flags: Siflags,
 ) -> Result<Size, Errno> {
     let mut rp0 = MaybeUninit::<Size>::uninit();
     let ret = wasix_snapshot_preview1::sock_send_to(
         fd as i32,
-        buf.as_ptr() as i32,
-        buf.len() as i32,
+        si_data.as_ptr() as i32,
+        si_data.len() as i32,
         &addr as *const _ as i32,
-        flags as i32,
+        si_flags as i32,
         rp0.as_mut_ptr() as i32,
     );
     match ret {
@@ -4045,16 +4063,18 @@ pub unsafe fn sock_send_to(
 /// ## Parameters
 ///
 /// * `host` - Host to resolve
+/// * `port` - Port hint (zero if no hint is supplied)
 /// * `ips` - The buffer where IP addresses will be stored
 ///
 /// ## Return
 ///
 /// The number of IP addresses returned during the DNS resolution.
-pub unsafe fn resolve(host: &str, ips: *mut AddrIp, nips: Size) -> Result<Size, Errno> {
+pub unsafe fn resolve(host: &str, port: u16, ips: *mut AddrIp, nips: Size) -> Result<Size, Errno> {
     let mut rp0 = MaybeUninit::<Size>::uninit();
     let ret = wasix_snapshot_preview1::resolve(
         host.as_ptr() as i32,
         host.len() as i32,
+        port as i32,
         ips as i32,
         nips as i32,
         rp0.as_mut_ptr() as i32,
@@ -4469,9 +4489,9 @@ pub mod wasix_snapshot_preview1 {
         ///
         /// Note: This is similar to `listen`
         pub fn sock_listen(arg0: i32, arg1: i32) -> i32;
-        /// Accept a connection on a socket
-        /// Note: This is similar to `accept`
-        pub fn sock_accept(arg0: i32, arg1: i32) -> i32;
+        /// Accept a new incoming connection.
+        /// Note: This is similar to `accept` in POSIX.
+        pub fn sock_accept(arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> i32;
         /// Initiate a connection on a socket to the specified address
         ///
         /// Polling the socket handle will wait for data to arrive or for
@@ -4480,19 +4500,28 @@ pub mod wasix_snapshot_preview1 {
         /// Note: This is similar to `connect` in POSIX
         pub fn sock_connect(arg0: i32, arg1: i32) -> i32;
         /// Receive a message from a socket.
-        /// Note: This is similar to `recv` in POSIX.
-        pub fn sock_recv(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32) -> i32;
-        /// Receive a message from a socket.
-        ///
-        /// The address buffer must be at least the size of addr_t.
-        ///
-        /// Note: This is similar to `recvfrom` in POSIX.
-        pub fn sock_recv_from(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32) -> i32;
+        /// Note: This is similar to `recv` in POSIX, though it also supports reading
+        /// the data into multiple buffers in the manner of `readv`.
+        pub fn sock_recv(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32, arg5: i32) -> i32;
+        /// Receive a message and its peer address from a socket.
+        /// Note: This is similar to `recvfrom` in POSIX, though it also supports reading
+        /// the data into multiple buffers in the manner of `readv`.
+        pub fn sock_recv_from(
+            arg0: i32,
+            arg1: i32,
+            arg2: i32,
+            arg3: i32,
+            arg4: i32,
+            arg5: i32,
+            arg6: i32,
+        ) -> i32;
         /// Send a message on a socket.
-        /// Note: This is similar to `send` in POSIX.
+        /// Note: This is similar to `send` in POSIX, though it also supports writing
+        /// the data from multiple buffers in the manner of `writev`.
         pub fn sock_send(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32) -> i32;
-        /// Send a message on a socket.
-        /// Note: This is similar to `sendto` in POSIX.
+        /// Send a message on a socket to a specific address.
+        /// Note: This is similar to `sendto` in POSIX, though it also supports writing
+        /// the data from multiple buffers in the manner of `writev`.
         pub fn sock_send_to(
             arg0: i32,
             arg1: i32,
@@ -4508,6 +4537,6 @@ pub mod wasix_snapshot_preview1 {
         /// When successful, the contents of the output buffer consist of a sequence of
         /// IPv4 and/or IPv6 addresses. Each address entry consists of a addr_t object.
         /// This function fills the output buffer as much as possible.
-        pub fn resolve(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32) -> i32;
+        pub fn resolve(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32, arg5: i32) -> i32;
     }
 }
