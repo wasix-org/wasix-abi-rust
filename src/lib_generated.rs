@@ -3609,12 +3609,14 @@ pub unsafe fn sock_set_timeout(
 ///
 /// * `fd` - Socket descriptor
 /// * `ty` - Type of timeout to be retrieved
-pub unsafe fn sock_get_timeout(fd: Fd, ty: TimeoutType) -> Result<Timestamp, Errno> {
-    let mut rp0 = MaybeUninit::<Timestamp>::uninit();
+pub unsafe fn sock_get_timeout(fd: Fd, ty: TimeoutType) -> Result<OptionTimestamp, Errno> {
+    let mut rp0 = MaybeUninit::<OptionTimestamp>::uninit();
     let ret =
         wasix_snapshot_preview1::sock_get_timeout(fd as i32, ty as i32, rp0.as_mut_ptr() as i32);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Timestamp)),
+        0 => Ok(core::ptr::read(
+            rp0.as_mut_ptr() as i32 as *const OptionTimestamp
+        )),
         _ => Err(Errno(ret as u16)),
     }
 }
