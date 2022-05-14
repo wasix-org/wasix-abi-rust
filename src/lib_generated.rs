@@ -3861,14 +3861,17 @@ pub unsafe fn sock_get_linger(fd: Fd) -> Result<OptionTimestamp, Errno> {
 ///
 /// * `fd` - Socket descriptor
 /// * `ty` - Type of timeout to be changed
-/// * `reuse` - Value to set the timeout to
+/// * `timeout` - Value to set the timeout to
 pub unsafe fn sock_set_timeout(
     fd: Fd,
     ty: TimeoutType,
-    reuse: OptionTimestamp,
+    timeout: OptionTimestamp,
 ) -> Result<(), Errno> {
-    let ret =
-        wasix_snapshot_preview1::sock_set_timeout(fd as i32, ty as i32, &reuse as *const _ as i32);
+    let ret = wasix_snapshot_preview1::sock_set_timeout(
+        fd as i32,
+        ty as i32,
+        &timeout as *const _ as i32,
+    );
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
