@@ -3397,8 +3397,6 @@ pub unsafe fn bus_poll(
 ///
 /// * `bid` - Handle of the bus process to poll for new events
 ///   (if no process is supplied then it polls for the current process)
-/// * `ty` - Type of event data that is held here
-/// * `cid` - Handle of the call this data is related to
 /// * `topic` - The topic that describes the event that happened
 /// * `buf` - The buffer where event data is stored
 ///
@@ -3407,24 +3405,24 @@ pub unsafe fn bus_poll(
 /// Returns the number of events that have occured
 pub unsafe fn bus_poll_data(
     bid: OptionBid,
-    ty: *mut BusDataType,
-    cid: *mut Cid,
     topic: *mut u8,
     topic_len: Size,
     buf: *mut u8,
     buf_len: Size,
-) -> Result<(), BusError> {
+) -> Result<BusEventData, BusError> {
+    let mut rp0 = MaybeUninit::<BusEventData>::uninit();
     let ret = wasix_snapshot_preview1::bus_poll_data(
         &bid as *const _ as i32,
-        ty as i32,
-        cid as i32,
         topic as i32,
         topic_len as i32,
         buf as i32,
         buf_len as i32,
+        rp0.as_mut_ptr() as i32,
     );
     match ret {
-        0 => Ok(()),
+        0 => Ok(core::ptr::read(
+            rp0.as_mut_ptr() as i32 as *const BusEventData
+        )),
         _ => Err(BusError(ret as u32)),
     }
 }
@@ -3675,8 +3673,8 @@ pub unsafe fn port_route_remove(cidr: AddrCidr) -> Result<(), Errno> {
 }
 
 /// Clears all the routes in the local port
-pub unsafe fn port_route_clear(cidr: AddrCidr) -> Result<(), Errno> {
-    let ret = wasix_snapshot_preview1::port_route_clear(&cidr as *const _ as i32);
+pub unsafe fn port_route_clear() -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::port_route_clear();
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
@@ -4677,7 +4675,6 @@ pub mod wasix_snapshot_preview1 {
             arg3: i32,
             arg4: i32,
             arg5: i32,
-            arg6: i32,
         ) -> i32;
         /// Connects to a websocket at a particular network URL
         pub fn ws_connect(arg0: i32, arg1: i32, arg2: i32) -> i32;
@@ -4719,7 +4716,7 @@ pub mod wasix_snapshot_preview1 {
         /// Removes an existing route from the local port
         pub fn port_route_remove(arg0: i32) -> i32;
         /// Clears all the routes in the local port
-        pub fn port_route_clear(arg0: i32) -> i32;
+        pub fn port_route_clear() -> i32;
         /// Returns a list of all the routes owned by the local port
         /// This function fills the output buffer as much as possible.
         pub fn port_route_list(arg0: i32, arg1: i32, arg2: i32) -> i32;
