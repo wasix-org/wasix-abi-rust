@@ -586,8 +586,8 @@ pub struct OptionCid {
 #[repr(transparent)]
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Bool(u8);
-pub const BOOL_TRUE: Bool = Bool(0);
-pub const BOOL_FALSE: Bool = Bool(1);
+pub const BOOL_FALSE: Bool = Bool(0);
+pub const BOOL_TRUE: Bool = Bool(1);
 impl Bool {
     pub const fn raw(&self) -> u8 {
         self.0
@@ -595,8 +595,8 @@ impl Bool {
 
     pub fn name(&self) -> &'static str {
         match self.0 {
-            0 => "TRUE",
-            1 => "FALSE",
+            0 => "FALSE",
+            1 => "TRUE",
             _ => unsafe { core::hint::unreachable_unchecked() },
         }
     }
