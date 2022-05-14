@@ -3688,15 +3688,18 @@ pub unsafe fn port_route_clear(cidr: AddrCidr) -> Result<(), Errno> {
 ///
 /// ## Parameters
 ///
-/// * `ips` - The buffer where routes will be stored
+/// * `routes` - The buffer where routes will be stored
 ///
 /// ## Return
 ///
 /// The number of routes returned.
-pub unsafe fn port_route_list(ips: *mut Route, nips: Size) -> Result<Size, Errno> {
+pub unsafe fn port_route_list(routes: *mut Route, nroutes: Size) -> Result<Size, Errno> {
     let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret =
-        wasix_snapshot_preview1::port_route_list(ips as i32, nips as i32, rp0.as_mut_ptr() as i32);
+    let ret = wasix_snapshot_preview1::port_route_list(
+        routes as i32,
+        nroutes as i32,
+        rp0.as_mut_ptr() as i32,
+    );
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
         _ => Err(Errno(ret as u16)),
