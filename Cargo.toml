@@ -1,15 +1,15 @@
 [package]
 name = "wasix"
-version = "0.11.0+wasix-snapshot-preview1"
+version = "0.11.1+wasix-snapshot-preview1"
 authors = ["The Cranelift Project Developers", "john-sharratt"]
 license = "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT"
 description = "Experimental WASIX API bindings for Rust"
 edition = "2018"
 categories = ["no-std", "wasm"]
 keywords = ["webassembly", "wasm"]
-repository = "https://github.com/john-sharratt/wasi"
+repository = "https://github.com/john-sharratt/wasix"
 readme = "README.md"
-documentation = "https://docs.rs/wasi"
+documentation = "https://docs.rs/wasix"
 
 [workspace]
 members = ['crates/witx-bindgen', 'crates/wasi-ephemeral']
