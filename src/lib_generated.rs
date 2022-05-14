@@ -1726,104 +1726,27 @@ impl fmt::Debug for SockOption {
     }
 }
 
-pub type IpPort = u16;
-#[repr(transparent)]
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub struct AddrType(u8);
-/// IPv4 address
-pub const ADDR_TYPE_IP4: AddrType = AddrType(0);
-/// IPv6 address
-pub const ADDR_TYPE_IP6: AddrType = AddrType(1);
-impl AddrType {
-    pub const fn raw(&self) -> u8 {
-        self.0
-    }
-
-    pub fn name(&self) -> &'static str {
-        match self.0 {
-            0 => "IP4",
-            1 => "IP6",
-            _ => unsafe { core::hint::unreachable_unchecked() },
-        }
-    }
-    pub fn message(&self) -> &'static str {
-        match self.0 {
-            0 => "IPv4 address",
-            1 => "IPv6 address",
-            _ => unsafe { core::hint::unreachable_unchecked() },
-        }
-    }
-}
-impl fmt::Debug for AddrType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("AddrType")
-            .field("code", &self.0)
-            .field("name", &self.name())
-            .field("message", &self.message())
-            .finish()
-    }
-}
+pub type StreamSecurity = u8;
+/// Unencrypted
+pub const STREAM_SECURITY_UNENCRYPTED: StreamSecurity = 1 << 0;
+/// Any encryption
+pub const STREAM_SECURITY_ANY_ENCRYPTION: StreamSecurity = 1 << 1;
+/// Classic encryption
+pub const STREAM_SECURITY_CLASSIC_ENCRYPTION: StreamSecurity = 1 << 2;
+/// Double encryption
+pub const STREAM_SECURITY_DOUBLE_ENCRYPTION: StreamSecurity = 1 << 3;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
-pub struct AddrIp4 {
+pub struct HardwareAddress {
     pub n0: u8,
     pub n1: u8,
+    pub n2: u8,
     pub h0: u8,
     pub h1: u8,
+    pub h2: u8,
 }
-#[repr(C)]
-#[derive(Copy, Clone, Debug)]
-pub struct AddrIp4Port {
-    pub addr: AddrIp4,
-    pub port: IpPort,
-}
-#[repr(C)]
-#[derive(Copy, Clone, Debug)]
-pub struct AddrIp6 {
-    pub n0: u16,
-    pub n1: u16,
-    pub n2: u16,
-    pub n3: u16,
-    pub h0: u16,
-    pub h1: u16,
-    pub h2: u16,
-    pub h3: u16,
-}
-#[repr(C)]
-#[derive(Copy, Clone, Debug)]
-pub struct AddrIp6Port {
-    pub addr: AddrIp6,
-    pub port: IpPort,
-}
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub union AddrIpU {
-    pub ip4: AddrIp4,
-    pub ip6: AddrIp6,
-}
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct AddrIp {
-    pub tag: u8,
-    pub u: AddrIpU,
-}
-
-pub type AddrIpArray<'a> = &'a [AddrIp];
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub union AddrPortU {
-    pub ip4: AddrIp4Port,
-    pub ip6: AddrIp6Port,
-}
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct AddrPort {
-    pub tag: u8,
-    pub u: AddrPortU,
-}
-
-pub type AddrPortArray<'a> = &'a [AddrPort];
+pub type IpPort = u16;
 #[repr(transparent)]
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct AddressFamily(u8);
@@ -1861,6 +1784,100 @@ impl fmt::Debug for AddressFamily {
     }
 }
 
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct AddrIp4 {
+    pub n0: u8,
+    pub n1: u8,
+    pub h0: u8,
+    pub h1: u8,
+}
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct AddrIp4Port {
+    pub addr: AddrIp4,
+    pub port: IpPort,
+}
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct AddrIp4Cidr {
+    pub addr: AddrIp4,
+    pub prefix: u8,
+}
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct AddrIp6 {
+    pub n0: u16,
+    pub n1: u16,
+    pub n2: u16,
+    pub n3: u16,
+    pub h0: u16,
+    pub h1: u16,
+    pub h2: u16,
+    pub h3: u16,
+}
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct AddrIp6Port {
+    pub addr: AddrIp6,
+    pub port: IpPort,
+}
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct AddrIp6Cidr {
+    pub addr: AddrIp6,
+    pub prefix: u8,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union AddrIpU {
+    pub inet4: AddrIp4,
+    pub inet6: AddrIp6,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct AddrIp {
+    pub tag: u8,
+    pub u: AddrIpU,
+}
+
+pub type AddrIpArray<'a> = &'a [AddrIp];
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union AddrPortU {
+    pub inet4: AddrIp4Port,
+    pub inet6: AddrIp6Port,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct AddrPort {
+    pub tag: u8,
+    pub u: AddrPortU,
+}
+
+pub type AddrPortArray<'a> = &'a [AddrPort];
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union AddrCidrU {
+    pub inet4: AddrIp4Cidr,
+    pub inet6: AddrIp6Cidr,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct AddrCidr {
+    pub tag: u8,
+    pub u: AddrCidrU,
+}
+
+pub type AddrCidrArray<'a> = &'a [AddrCidr];
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct Route {
+    pub cidr: AddrCidr,
+    pub via_router: AddrIp,
+    pub preferred_until: OptionTimestamp,
+    pub expires_at: OptionTimestamp,
+}
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct HttpHeaderSizes {
@@ -3431,6 +3448,186 @@ pub unsafe fn http_status(
     }
 }
 
+/// Securely connects to a particular remote network
+///
+/// ## Parameters
+///
+/// * `network` - Fully qualified identifier for the network
+/// * `token` - Access token used to authenticate with the network
+/// * `security` - Level of encryption to encapsulate the network connection with
+pub unsafe fn port_connect(
+    network: &str,
+    token: &str,
+    security: StreamSecurity,
+) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::port_connect(
+        network.as_ptr() as i32,
+        network.len() as i32,
+        token.as_ptr() as i32,
+        token.len() as i32,
+        security as i32,
+    );
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Disconnects from a remote network
+pub unsafe fn port_disconnect() -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::port_disconnect();
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Acquires a set of IP addresses using DHCP
+pub unsafe fn port_dhcp_acquire() -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::port_dhcp_acquire();
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Adds another static IP address to the local port
+///
+/// ## Parameters
+///
+/// * `ip` - IP address to be added
+pub unsafe fn port_ip_add(ip: AddrIp) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::port_ip_add(&ip as *const _ as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Removes an IP address from the local port
+///
+/// ## Parameters
+///
+/// * `ip` - IP address to be removed
+pub unsafe fn port_ip_remove(ip: AddrIp) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::port_ip_remove(&ip as *const _ as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Clears all the IP addresses on the local port
+pub unsafe fn port_ip_clear() -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::port_ip_clear();
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Returns the MAC address of the local port
+pub unsafe fn port_mac() -> Result<HardwareAddress, Errno> {
+    let mut rp0 = MaybeUninit::<HardwareAddress>::uninit();
+    let ret = wasix_snapshot_preview1::port_mac(rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(
+            rp0.as_mut_ptr() as i32 as *const HardwareAddress
+        )),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Returns a list of all the IP addresses owned by the local port
+/// This function fills the output buffer as much as possible.
+///
+/// ## Parameters
+///
+/// * `ips` - The buffer where IP addresses will be stored
+///
+/// ## Return
+///
+/// The number of IP addresses returned.
+pub unsafe fn port_ip_list(ips: *mut AddrCidr, nips: Size) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
+    let ret =
+        wasix_snapshot_preview1::port_ip_list(ips as i32, nips as i32, rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Adds a default gateway to the port
+///
+/// ## Parameters
+///
+/// * `ip` - IP address of the default gateway
+pub unsafe fn port_gateway_set(ip: AddrIp) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::port_gateway_set(&ip as *const _ as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Adds a new route to the local port
+pub unsafe fn port_route_add(
+    cidr: AddrCidr,
+    via_router: AddrIp,
+    preferred_until: OptionTimestamp,
+    expires_at: OptionTimestamp,
+) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::port_route_add(
+        &cidr as *const _ as i32,
+        &via_router as *const _ as i32,
+        &preferred_until as *const _ as i32,
+        &expires_at as *const _ as i32,
+    );
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Removes an existing route from the local port
+pub unsafe fn port_route_remove(cidr: AddrCidr) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::port_route_remove(&cidr as *const _ as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Clears all the routes in the local port
+pub unsafe fn port_route_clear(cidr: AddrCidr) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::port_route_clear(&cidr as *const _ as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Returns a list of all the routes owned by the local port
+/// This function fills the output buffer as much as possible.
+///
+/// ## Parameters
+///
+/// * `ips` - The buffer where routes will be stored
+///
+/// ## Return
+///
+/// The number of routes returned.
+pub unsafe fn port_route_list(ips: *mut Route, nips: Size) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
+    let ret =
+        wasix_snapshot_preview1::port_route_list(ips as i32, nips as i32, rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
 /// Shut down socket send and receive channels.
 /// Note: This is similar to `shutdown` in POSIX.
 ///
@@ -4409,6 +4606,34 @@ pub mod wasix_snapshot_preview1 {
         ) -> i32;
         /// Retrieves the status of a HTTP request
         pub fn http_status(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32) -> i32;
+        /// Securely connects to a particular remote network
+        pub fn port_connect(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32) -> i32;
+        /// Disconnects from a remote network
+        pub fn port_disconnect() -> i32;
+        /// Acquires a set of IP addresses using DHCP
+        pub fn port_dhcp_acquire() -> i32;
+        /// Adds another static IP address to the local port
+        pub fn port_ip_add(arg0: i32) -> i32;
+        /// Removes an IP address from the local port
+        pub fn port_ip_remove(arg0: i32) -> i32;
+        /// Clears all the IP addresses on the local port
+        pub fn port_ip_clear() -> i32;
+        /// Returns the MAC address of the local port
+        pub fn port_mac(arg0: i32) -> i32;
+        /// Returns a list of all the IP addresses owned by the local port
+        /// This function fills the output buffer as much as possible.
+        pub fn port_ip_list(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        /// Adds a default gateway to the port
+        pub fn port_gateway_set(arg0: i32) -> i32;
+        /// Adds a new route to the local port
+        pub fn port_route_add(arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> i32;
+        /// Removes an existing route from the local port
+        pub fn port_route_remove(arg0: i32) -> i32;
+        /// Clears all the routes in the local port
+        pub fn port_route_clear(arg0: i32) -> i32;
+        /// Returns a list of all the routes owned by the local port
+        /// This function fills the output buffer as much as possible.
+        pub fn port_route_list(arg0: i32, arg1: i32, arg2: i32) -> i32;
         /// Shut down socket send and receive channels.
         /// Note: This is similar to `shutdown` in POSIX.
         pub fn sock_shutdown(arg0: i32, arg1: i32) -> i32;
