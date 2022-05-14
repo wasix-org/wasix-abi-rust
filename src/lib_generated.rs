@@ -3799,9 +3799,9 @@ pub unsafe fn sock_open(af: AddressFamily, socktype: SockType) -> Result<Fd, Err
 ///
 /// * `fd` - Socket descriptor
 /// * `sockopt` - Socket option to be set
-/// * `reuse` - Value to set the option to
-pub unsafe fn sock_set_opt(fd: Fd, sockopt: SockOption, reuse: Bool) -> Result<(), Errno> {
-    let ret = wasix_snapshot_preview1::sock_set_opt(fd as i32, sockopt.0 as i32, reuse.0 as i32);
+/// * `flag` - Value to set the option to
+pub unsafe fn sock_set_opt(fd: Fd, sockopt: SockOption, flag: Bool) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::sock_set_opt(fd as i32, sockopt.0 as i32, flag.0 as i32);
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
@@ -3830,9 +3830,9 @@ pub unsafe fn sock_get_opt(fd: Fd, sockopt: SockOption) -> Result<Bool, Errno> {
 /// ## Parameters
 ///
 /// * `fd` - Socket descriptor
-/// * `reuse` - Value to set the linger to
-pub unsafe fn sock_set_linger(fd: Fd, reuse: OptionTimestamp) -> Result<(), Errno> {
-    let ret = wasix_snapshot_preview1::sock_set_linger(fd as i32, &reuse as *const _ as i32);
+/// * `linger` - Value to set the linger to
+pub unsafe fn sock_set_linger(fd: Fd, linger: OptionTimestamp) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::sock_set_linger(fd as i32, &linger as *const _ as i32);
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
