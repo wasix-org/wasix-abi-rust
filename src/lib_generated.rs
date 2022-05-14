@@ -1224,11 +1224,66 @@ impl fmt::Debug for BusDataType {
     }
 }
 
+#[repr(transparent)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct BusDataFormat(u8);
+/// Raw binary data
+pub const BUS_DATA_FORMAT_RAW: BusDataFormat = BusDataFormat(0);
+/// Uses the bincode serializer
+pub const BUS_DATA_FORMAT_BINCODE: BusDataFormat = BusDataFormat(1);
+/// Uses the message pack serializer
+pub const BUS_DATA_FORMAT_MESSAGE_PACK: BusDataFormat = BusDataFormat(2);
+/// JSON
+pub const BUS_DATA_FORMAT_JSON: BusDataFormat = BusDataFormat(3);
+/// YAML
+pub const BUS_DATA_FORMAT_YAML: BusDataFormat = BusDataFormat(4);
+/// XML
+pub const BUS_DATA_FORMAT_XML: BusDataFormat = BusDataFormat(5);
+impl BusDataFormat {
+    pub const fn raw(&self) -> u8 {
+        self.0
+    }
+
+    pub fn name(&self) -> &'static str {
+        match self.0 {
+            0 => "RAW",
+            1 => "BINCODE",
+            2 => "MESSAGE_PACK",
+            3 => "JSON",
+            4 => "YAML",
+            5 => "XML",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+    pub fn message(&self) -> &'static str {
+        match self.0 {
+            0 => "Raw binary data",
+            1 => "Uses the bincode serializer",
+            2 => "Uses the message pack serializer",
+            3 => "JSON",
+            4 => "YAML",
+            5 => "XML",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+}
+impl fmt::Debug for BusDataFormat {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("BusDataFormat")
+            .field("code", &self.0)
+            .field("name", &self.name())
+            .field("message", &self.message())
+            .finish()
+    }
+}
+
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct BusEventData {
     /// Type of event data that is held here
     pub ty: BusDataType,
+    /// Format of the data on the bus
+    pub format: BusDataFormat,
     /// Handle of the call that has made a callback
     pub cid: Cid,
     /// The topic that describes the event that happened
@@ -3170,12 +3225,14 @@ pub unsafe fn bus_close(bid: Bid) -> Result<(), BusError> {
 ///   reply is received. It is then the  callers responsibility
 ///   to invoke 'bus_drop' when they are finished with the call
 /// * `topic` - Topic that describes the type of call to made
+/// * `format` - Format of the data pushed onto the bus
 /// * `buf` - The buffer where data to be transmitted is stored
 pub unsafe fn bus_invoke(
     bid: Bid,
     parent: OptionCid,
     keep_alive: Bool,
     topic: &str,
+    format: BusDataFormat,
     buf: BufArray<'_>,
 ) -> Result<Cid, BusError> {
     let mut rp0 = MaybeUninit::<Cid>::uninit();
@@ -3185,6 +3242,7 @@ pub unsafe fn bus_invoke(
         keep_alive.0 as i32,
         topic.as_ptr() as i32,
         topic.len() as i32,
+        format.0 as i32,
         buf.as_ptr() as i32,
         buf.len() as i32,
         rp0.as_mut_ptr() as i32,
@@ -3232,9 +3290,19 @@ pub unsafe fn bus_drop(cid: Cid) -> Result<(), BusError> {
 /// ## Parameters
 ///
 /// * `cid` - Handle of the call to send a reply on
+/// * `format` - Format of the data pushed onto the bus
 /// * `buf` - The buffer where data to be transmitted is stored
-pub unsafe fn bus_reply(cid: Cid, buf: BufArray<'_>) -> Result<(), BusError> {
-    let ret = wasix_snapshot_preview1::bus_reply(cid as i32, buf.as_ptr() as i32, buf.len() as i32);
+pub unsafe fn bus_reply(
+    cid: Cid,
+    format: BusDataFormat,
+    buf: BufArray<'_>,
+) -> Result<(), BusError> {
+    let ret = wasix_snapshot_preview1::bus_reply(
+        cid as i32,
+        format.0 as i32,
+        buf.as_ptr() as i32,
+        buf.len() as i32,
+    );
     match ret {
         0 => Ok(()),
         _ => Err(BusError(ret as u32)),
@@ -3248,12 +3316,19 @@ pub unsafe fn bus_reply(cid: Cid, buf: BufArray<'_>) -> Result<(), BusError> {
 ///
 /// * `cid` - Handle of the call where a callback will be send
 /// * `topic` - Topic that describes the type of callback
+/// * `format` - Format of the data pushed onto the bus
 /// * `buf` - The buffer where data to be transmitted is stored
-pub unsafe fn bus_callback(cid: Cid, topic: &str, buf: BufArray<'_>) -> Result<(), BusError> {
+pub unsafe fn bus_callback(
+    cid: Cid,
+    topic: &str,
+    format: BusDataFormat,
+    buf: BufArray<'_>,
+) -> Result<(), BusError> {
     let ret = wasix_snapshot_preview1::bus_callback(
         cid as i32,
         topic.as_ptr() as i32,
         topic.len() as i32,
+        format.0 as i32,
         buf.as_ptr() as i32,
         buf.len() as i32,
     );
@@ -4559,6 +4634,7 @@ pub mod wasix_snapshot_preview1 {
             arg5: i32,
             arg6: i32,
             arg7: i32,
+            arg8: i32,
         ) -> i32;
         /// Causes a fault on a particular call that was made
         /// to this process from another process; where 'bid'
@@ -4570,10 +4646,17 @@ pub mod wasix_snapshot_preview1 {
         /// from another process; where 'cid' is the call context.
         /// This will may also drop the handle and release any
         /// associated resources (if keepalive is not set)
-        pub fn bus_reply(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        pub fn bus_reply(arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> i32;
         /// Invokes a callback within the calling process against
         /// a particular bus call represented by 'cid'.
-        pub fn bus_callback(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32) -> i32;
+        pub fn bus_callback(
+            arg0: i32,
+            arg1: i32,
+            arg2: i32,
+            arg3: i32,
+            arg4: i32,
+            arg5: i32,
+        ) -> i32;
         /// Tells the operating system that this process is
         /// now listening for bus calls on a particular topic
         pub fn bus_listen(arg0: i32, arg1: i32, arg2: i32) -> i32;
