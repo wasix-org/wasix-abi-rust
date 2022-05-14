@@ -3397,6 +3397,8 @@ pub unsafe fn bus_poll(
 ///
 /// * `bid` - Handle of the bus process to poll for new events
 ///   (if no process is supplied then it polls for the current process)
+/// * `timeout` - Timeout before the poll returns, if one passed 0
+///   as the timeout then this call is non blocking.
 /// * `topic` - The topic that describes the event that happened
 /// * `buf` - The buffer where event data is stored
 ///
@@ -3405,6 +3407,7 @@ pub unsafe fn bus_poll(
 /// Returns the number of events that have occured
 pub unsafe fn bus_poll_data(
     bid: OptionBid,
+    timeout: Timestamp,
     topic: *mut u8,
     topic_len: Size,
     buf: *mut u8,
@@ -3413,6 +3416,7 @@ pub unsafe fn bus_poll_data(
     let mut rp0 = MaybeUninit::<BusEventData>::uninit();
     let ret = wasix_snapshot_preview1::bus_poll_data(
         &bid as *const _ as i32,
+        timeout as i64,
         topic as i32,
         topic_len as i32,
         buf as i32,
@@ -4670,11 +4674,12 @@ pub mod wasix_snapshot_preview1 {
         /// Receives the next event data from the bus
         pub fn bus_poll_data(
             arg0: i32,
-            arg1: i32,
+            arg1: i64,
             arg2: i32,
             arg3: i32,
             arg4: i32,
             arg5: i32,
+            arg6: i32,
         ) -> i32;
         /// Connects to a websocket at a particular network URL
         pub fn ws_connect(arg0: i32, arg1: i32, arg2: i32) -> i32;
