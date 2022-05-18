@@ -1741,6 +1741,8 @@ pub const SOCK_OPTION_BROADCAST: SockOption = SockOption(4);
 pub const SOCK_OPTION_MULTICAST_LOOP_V4: SockOption = SockOption(5);
 /// Multicast Loop IPv6
 pub const SOCK_OPTION_MULTICAST_LOOP_V6: SockOption = SockOption(6);
+/// Promiscuous
+pub const SOCK_OPTION_PROMISCUOUS: SockOption = SockOption(7);
 impl SockOption {
     pub const fn raw(&self) -> u8 {
         self.0
@@ -1755,6 +1757,7 @@ impl SockOption {
             4 => "BROADCAST",
             5 => "MULTICAST_LOOP_V4",
             6 => "MULTICAST_LOOP_V6",
+            7 => "PROMISCUOUS",
             _ => unsafe { core::hint::unreachable_unchecked() },
         }
     }
@@ -1767,6 +1770,7 @@ impl SockOption {
             4 => "Broadcast",
             5 => "Multicast Loop IPv4",
             6 => "Multicast Loop IPv6",
+            7 => "Promiscuous",
             _ => unsafe { core::hint::unreachable_unchecked() },
         }
     }
@@ -3501,26 +3505,27 @@ pub unsafe fn http_request(
 /// * `status` - Pointer to a buffer that will be filled with the current
 ///   status of this HTTP request
 /// * `status_text` - Buffer that will hold the status text
-///
-/// ## Return
-///
-/// Returns the number of bytes held in the status text field
+/// * `status_text_len` - This field will also be filled with the number of bytes returned in the status text
+/// * `headers` - Buffer that will hold the response headers
+/// * `headers_len` - This field will also be filled with the number of bytes returned in the response headers
 pub unsafe fn http_status(
     fd: Fd,
     status: *mut HttpStatus,
     status_text: *mut u8,
-    status_text_len: Size,
-) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
+    status_text_len: *mut Size,
+    headers: *mut u8,
+    headers_len: *mut Size,
+) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::http_status(
         fd as i32,
         status as i32,
         status_text as i32,
         status_text_len as i32,
-        rp0.as_mut_ptr() as i32,
+        headers as i32,
+        headers_len as i32,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
+        0 => Ok(()),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -3532,12 +3537,12 @@ pub unsafe fn http_status(
 /// * `network` - Fully qualified identifier for the network
 /// * `token` - Access token used to authenticate with the network
 /// * `security` - Level of encryption to encapsulate the network connection with
-pub unsafe fn port_connect(
+pub unsafe fn port_bridge(
     network: &str,
     token: &str,
     security: StreamSecurity,
 ) -> Result<(), Errno> {
-    let ret = wasix_snapshot_preview1::port_connect(
+    let ret = wasix_snapshot_preview1::port_bridge(
         network.as_ptr() as i32,
         network.len() as i32,
         token.as_ptr() as i32,
@@ -3551,8 +3556,8 @@ pub unsafe fn port_connect(
 }
 
 /// Disconnects from a remote network
-pub unsafe fn port_disconnect() -> Result<(), Errno> {
-    let ret = wasix_snapshot_preview1::port_disconnect();
+pub unsafe fn port_unbridge() -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::port_unbridge();
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
@@ -3573,7 +3578,7 @@ pub unsafe fn port_dhcp_acquire() -> Result<(), Errno> {
 /// ## Parameters
 ///
 /// * `ip` - IP address to be added
-pub unsafe fn port_ip_add(ip: AddrIp) -> Result<(), Errno> {
+pub unsafe fn port_ip_add(ip: AddrCidr) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::port_ip_add(&ip as *const _ as i32);
     match ret {
         0 => Ok(()),
@@ -3617,6 +3622,8 @@ pub unsafe fn port_mac() -> Result<HardwareAddress, Errno> {
 
 /// Returns a list of all the IP addresses owned by the local port
 /// This function fills the output buffer as much as possible.
+/// If the buffer is not big enough then the nips address will be
+/// filled with the buffer size needed and the EOVERFLOW will be returned
 ///
 /// ## Parameters
 ///
@@ -3625,12 +3632,10 @@ pub unsafe fn port_mac() -> Result<HardwareAddress, Errno> {
 /// ## Return
 ///
 /// The number of IP addresses returned.
-pub unsafe fn port_ip_list(ips: *mut AddrCidr, nips: Size) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret =
-        wasix_snapshot_preview1::port_ip_list(ips as i32, nips as i32, rp0.as_mut_ptr() as i32);
+pub unsafe fn port_ip_list(ips: *mut AddrCidr, nips: *mut Size) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::port_ip_list(ips as i32, nips as i32);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
+        0 => Ok(()),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -3668,7 +3673,7 @@ pub unsafe fn port_route_add(
 }
 
 /// Removes an existing route from the local port
-pub unsafe fn port_route_remove(cidr: AddrCidr) -> Result<(), Errno> {
+pub unsafe fn port_route_remove(cidr: AddrIp) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::port_route_remove(&cidr as *const _ as i32);
     match ret {
         0 => Ok(()),
@@ -3687,23 +3692,16 @@ pub unsafe fn port_route_clear() -> Result<(), Errno> {
 
 /// Returns a list of all the routes owned by the local port
 /// This function fills the output buffer as much as possible.
+/// If the buffer is too small this will return EOVERFLOW and
+/// fill nroutes with the size of the buffer needed.
 ///
 /// ## Parameters
 ///
 /// * `routes` - The buffer where routes will be stored
-///
-/// ## Return
-///
-/// The number of routes returned.
-pub unsafe fn port_route_list(routes: *mut Route, nroutes: Size) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasix_snapshot_preview1::port_route_list(
-        routes as i32,
-        nroutes as i32,
-        rp0.as_mut_ptr() as i32,
-    );
+pub unsafe fn port_route_list(routes: *mut Route, nroutes: *mut Size) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::port_route_list(routes as i32, nroutes as i32);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
+        0 => Ok(()),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -3742,11 +3740,11 @@ pub unsafe fn sock_status(fd: Fd) -> Result<SockStatus, Errno> {
 /// ## Parameters
 ///
 /// * `fd` - Socket that the address is bound to
-pub unsafe fn sock_addr_local(fd: Fd) -> Result<AddrIp, Errno> {
-    let mut rp0 = MaybeUninit::<AddrIp>::uninit();
+pub unsafe fn sock_addr_local(fd: Fd) -> Result<AddrPort, Errno> {
+    let mut rp0 = MaybeUninit::<AddrPort>::uninit();
     let ret = wasix_snapshot_preview1::sock_addr_local(fd as i32, rp0.as_mut_ptr() as i32);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const AddrIp)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const AddrPort)),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -3761,11 +3759,11 @@ pub unsafe fn sock_addr_local(fd: Fd) -> Result<AddrIp, Errno> {
 /// ## Parameters
 ///
 /// * `fd` - Socket that the address is bound to
-pub unsafe fn sock_addr_remote(fd: Fd) -> Result<AddrIp, Errno> {
-    let mut rp0 = MaybeUninit::<AddrIp>::uninit();
-    let ret = wasix_snapshot_preview1::sock_addr_remote(fd as i32, rp0.as_mut_ptr() as i32);
+pub unsafe fn sock_addr_peer(fd: Fd) -> Result<AddrPort, Errno> {
+    let mut rp0 = MaybeUninit::<AddrPort>::uninit();
+    let ret = wasix_snapshot_preview1::sock_addr_peer(fd as i32, rp0.as_mut_ptr() as i32);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const AddrIp)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const AddrPort)),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -3867,16 +3865,8 @@ pub unsafe fn sock_get_linger(fd: Fd) -> Result<OptionTimestamp, Errno> {
 /// * `fd` - Socket descriptor
 /// * `ty` - Type of timeout to be changed
 /// * `timeout` - Value to set the timeout to
-pub unsafe fn sock_set_timeout(
-    fd: Fd,
-    ty: TimeoutType,
-    timeout: OptionTimestamp,
-) -> Result<(), Errno> {
-    let ret = wasix_snapshot_preview1::sock_set_timeout(
-        fd as i32,
-        ty as i32,
-        &timeout as *const _ as i32,
-    );
+pub unsafe fn sock_set_timeout(fd: Fd, ty: TimeoutType, timeout: Timestamp) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::sock_set_timeout(fd as i32, ty as i32, timeout as i64);
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
@@ -3889,14 +3879,12 @@ pub unsafe fn sock_set_timeout(
 ///
 /// * `fd` - Socket descriptor
 /// * `ty` - Type of timeout to be retrieved
-pub unsafe fn sock_get_timeout(fd: Fd, ty: TimeoutType) -> Result<OptionTimestamp, Errno> {
-    let mut rp0 = MaybeUninit::<OptionTimestamp>::uninit();
+pub unsafe fn sock_get_timeout(fd: Fd, ty: TimeoutType) -> Result<Timestamp, Errno> {
+    let mut rp0 = MaybeUninit::<Timestamp>::uninit();
     let ret =
         wasix_snapshot_preview1::sock_get_timeout(fd as i32, ty as i32, rp0.as_mut_ptr() as i32);
     match ret {
-        0 => Ok(core::ptr::read(
-            rp0.as_mut_ptr() as i32 as *const OptionTimestamp
-        )),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Timestamp)),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -4696,11 +4684,12 @@ pub mod wasix_snapshot_preview1 {
             arg7: i32,
         ) -> i32;
         /// Retrieves the status of a HTTP request
-        pub fn http_status(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32) -> i32;
+        pub fn http_status(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32, arg5: i32)
+            -> i32;
         /// Securely connects to a particular remote network
-        pub fn port_connect(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32) -> i32;
+        pub fn port_bridge(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32) -> i32;
         /// Disconnects from a remote network
-        pub fn port_disconnect() -> i32;
+        pub fn port_unbridge() -> i32;
         /// Acquires a set of IP addresses using DHCP
         pub fn port_dhcp_acquire() -> i32;
         /// Adds another static IP address to the local port
@@ -4713,7 +4702,9 @@ pub mod wasix_snapshot_preview1 {
         pub fn port_mac(arg0: i32) -> i32;
         /// Returns a list of all the IP addresses owned by the local port
         /// This function fills the output buffer as much as possible.
-        pub fn port_ip_list(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        /// If the buffer is not big enough then the nips address will be
+        /// filled with the buffer size needed and the EOVERFLOW will be returned
+        pub fn port_ip_list(arg0: i32, arg1: i32) -> i32;
         /// Adds a default gateway to the port
         pub fn port_gateway_set(arg0: i32) -> i32;
         /// Adds a new route to the local port
@@ -4724,7 +4715,9 @@ pub mod wasix_snapshot_preview1 {
         pub fn port_route_clear() -> i32;
         /// Returns a list of all the routes owned by the local port
         /// This function fills the output buffer as much as possible.
-        pub fn port_route_list(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        /// If the buffer is too small this will return EOVERFLOW and
+        /// fill nroutes with the size of the buffer needed.
+        pub fn port_route_list(arg0: i32, arg1: i32) -> i32;
         /// Shut down socket send and receive channels.
         /// Note: This is similar to `shutdown` in POSIX.
         pub fn sock_shutdown(arg0: i32, arg1: i32) -> i32;
@@ -4743,7 +4736,7 @@ pub mod wasix_snapshot_preview1 {
         ///
         /// When successful, the contents of the output buffer consist of an IP address,
         /// either IP4 or IP6.
-        pub fn sock_addr_remote(arg0: i32, arg1: i32) -> i32;
+        pub fn sock_addr_peer(arg0: i32, arg1: i32) -> i32;
         /// Create an endpoint for communication.
         ///
         /// creates an endpoint for communication and returns a file descriptor
@@ -4764,7 +4757,7 @@ pub mod wasix_snapshot_preview1 {
         /// Retrieve how long the socket will linger for
         pub fn sock_get_linger(arg0: i32, arg1: i32) -> i32;
         /// Sets one of the timeouts on the socket
-        pub fn sock_set_timeout(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        pub fn sock_set_timeout(arg0: i32, arg1: i32, arg2: i64) -> i32;
         /// Retrieve one of the timeouts on the socket
         pub fn sock_get_timeout(arg0: i32, arg1: i32, arg2: i32) -> i32;
         /// Set TTL for this socket
