@@ -994,7 +994,7 @@ pub struct Subscription {
 pub type Exitcode = u32;
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
-pub struct Rect {
+pub struct Tty {
     /// Number of columns
     pub cols: u32,
     /// Number of rows
@@ -1003,6 +1003,16 @@ pub struct Rect {
     pub width: u32,
     /// Height of the screen in pixels
     pub height: u32,
+    /// Indicates if stdin is a TTY
+    pub stdin_tty: Bool,
+    /// Indicates if stdout is a TTY
+    pub stdout_tty: Bool,
+    /// Indicates if stderr is a TTY
+    pub stderr_tty: Bool,
+    /// When enabled the TTY will echo input to console
+    pub echo: Bool,
+    /// When enabled buffers the input until the return key is pressed
+    pub line_buffered: Bool,
 }
 #[repr(transparent)]
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
@@ -2916,43 +2926,18 @@ pub unsafe fn random_get(buf: *mut u8, buf_len: Size) -> Result<(), Errno> {
     }
 }
 
-/// Opens the STDIN from TTY
-pub unsafe fn tty_stdin() -> Result<Fd, Errno> {
-    let mut rp0 = MaybeUninit::<Fd>::uninit();
-    let ret = wasix_snapshot_preview1::tty_stdin(rp0.as_mut_ptr() as i32);
+/// Retrieves the current state of the TTY
+pub unsafe fn tty_get(state: *mut Tty) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::tty_get(state as i32);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd)),
+        0 => Ok(()),
         _ => Err(Errno(ret as u16)),
     }
 }
 
-/// Opens the STDOUT from TTY
-pub unsafe fn tty_stdout() -> Result<Fd, Errno> {
-    let mut rp0 = MaybeUninit::<Fd>::uninit();
-    let ret = wasix_snapshot_preview1::tty_stdout(rp0.as_mut_ptr() as i32);
-    match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd)),
-        _ => Err(Errno(ret as u16)),
-    }
-}
-
-/// Opens the STDERR from TTY
-pub unsafe fn tty_stderr() -> Result<Fd, Errno> {
-    let mut rp0 = MaybeUninit::<Fd>::uninit();
-    let ret = wasix_snapshot_preview1::tty_stderr(rp0.as_mut_ptr() as i32);
-    match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd)),
-        _ => Err(Errno(ret as u16)),
-    }
-}
-
-/// Retrieves the rect of the TTY display
-///
-/// ## Parameters
-///
-/// * `rect` - The rect which will be filled by this call
-pub unsafe fn tty_rect(rect: *mut Rect) -> Result<(), Errno> {
-    let ret = wasix_snapshot_preview1::tty_rect(rect as i32);
+/// Updates the properties of the rect
+pub unsafe fn tty_set(state: *mut Tty) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::tty_set(state as i32);
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
@@ -4545,14 +4530,10 @@ pub mod wasix_snapshot_preview1 {
         /// required, it's advisable to use this function to seed a pseudo-random
         /// number generator, rather than to provide the random data directly.
         pub fn random_get(arg0: i32, arg1: i32) -> i32;
-        /// Opens the STDIN from TTY
-        pub fn tty_stdin(arg0: i32) -> i32;
-        /// Opens the STDOUT from TTY
-        pub fn tty_stdout(arg0: i32) -> i32;
-        /// Opens the STDERR from TTY
-        pub fn tty_stderr(arg0: i32) -> i32;
-        /// Retrieves the rect of the TTY display
-        pub fn tty_rect(arg0: i32) -> i32;
+        /// Retrieves the current state of the TTY
+        pub fn tty_get(arg0: i32) -> i32;
+        /// Updates the properties of the rect
+        pub fn tty_set(arg0: i32) -> i32;
         /// Returns the current working directory
         pub fn getcwd(arg0: i32, arg1: i32, arg2: i32) -> i32;
         /// Sets the current working directory
