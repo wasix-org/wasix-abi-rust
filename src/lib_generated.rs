@@ -1122,14 +1122,6 @@ impl fmt::Debug for BusError {
     }
 }
 
-#[repr(C)]
-#[derive(Copy, Clone, Debug)]
-pub struct PipeHandles {
-    /// File handle for data on one side of the pipe
-    pub pipe: Fd,
-    /// File handle for data on the other side of hte pipe
-    pub other: Fd,
-}
 #[repr(transparent)]
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct StdioMode(u8);
@@ -2558,13 +2550,15 @@ pub unsafe fn fd_write(fd: Fd, iovs: CiovecArray<'_>) -> Result<Size, Errno> {
 
 /// Opens a pipe with two file handles
 ///
-/// Pipes are bidirectional meaning
-pub unsafe fn pipe() -> Result<PipeHandles, Errno> {
-    let mut rp0 = MaybeUninit::<PipeHandles>::uninit();
-    let ret = wasix_snapshot_preview1::pipe(rp0.as_mut_ptr() as i32);
+/// Pipes are bidirectional
+pub unsafe fn pipe() -> Result<(Fd, Fd), Errno> {
+    let mut rp0 = MaybeUninit::<Fd>::uninit();
+    let mut rp1 = MaybeUninit::<Fd>::uninit();
+    let ret = wasix_snapshot_preview1::pipe(rp0.as_mut_ptr() as i32, rp1.as_mut_ptr() as i32);
     match ret {
-        0 => Ok(core::ptr::read(
-            rp0.as_mut_ptr() as i32 as *const PipeHandles
+        0 => Ok((
+            core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd),
+            core::ptr::read(rp1.as_mut_ptr() as i32 as *const Fd),
         )),
         _ => Err(Errno(ret as u16)),
     }
@@ -4434,8 +4428,8 @@ pub mod wasix_snapshot_preview1 {
         pub fn fd_write(arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> i32;
         /// Opens a pipe with two file handles
         ///
-        /// Pipes are bidirectional meaning
-        pub fn pipe(arg0: i32) -> i32;
+        /// Pipes are bidirectional
+        pub fn pipe(arg0: i32, arg1: i32) -> i32;
         /// Create a directory.
         /// Note: This is similar to `mkdirat` in POSIX.
         pub fn path_create_directory(arg0: i32, arg1: i32, arg2: i32) -> i32;
