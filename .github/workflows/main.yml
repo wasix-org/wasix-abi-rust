@@ -14,11 +14,11 @@ jobs:
         submodules: true
     - name: Install Rust
       run: rustup update ${{ matrix.rust }} && rustup default ${{ matrix.rust }} && rustup component add rustfmt
-    - run: rustup target add wasm32-wasi
+    - run: rustup target add wasm64-wasix
     - run: cargo build
     - run: cargo build --no-default-features
-    - run: cargo build --target wasm32-wasi
-    - run: cargo build --target wasm32-wasi --no-default-features
+    - run: cargo build --target wasm64-wasix
+    - run: cargo build --target wasm64-wasix --no-default-features
     - run: cargo build -p wasi-ephemeral
 
   rustfmt:

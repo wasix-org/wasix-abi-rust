@@ -51,7 +51,7 @@ Next you can use a tool like [`cargo
 wasix`](https://github.com/john.sharratt/cargo-wasix) to compile and run your
 project:
 
-To compile Rust projects to wasm using WASI, use the `wasm32-wasix` target,
+To compile Rust projects to wasm using WASI, use the `wasm64-wasix` target,
 like this:
 
 ```
@@ -59,8 +59,8 @@ $ wasmer run wasix
    Compiling wasix v0.11.0+wasix-snapshot-preview1
    Compiling wut v0.1.0 (/code)
     Finished dev [unoptimized + debuginfo] target(s) in 0.34s
-     Running `/.cargo/bin/cargo-wasix target/wasm32-wasix/debug/wut.wasm`
-     Running `target/wasm32-wasix/debug/wut.wasm`
+     Running `/.cargo/bin/cargo-wasix target/wasm64-wasix/debug/wut.wasm`
+     Running `target/wasm64-wasix/debug/wut.wasm`
 Hello, World!
 ```
 
