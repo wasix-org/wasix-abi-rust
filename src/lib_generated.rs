@@ -2945,20 +2945,16 @@ pub unsafe fn tty_set(state: *mut Tty) -> Result<(), Errno> {
 }
 
 /// Returns the current working directory
+/// If the path exceeds the size of the buffer then this function
+/// will fill the path_len with the needed size and return EOVERFLOW
 ///
 /// ## Parameters
 ///
 /// * `path` - The buffer where current directory is stored
-///
-/// ## Return
-///
-/// Number of bytes returned in the path buffer
-pub unsafe fn getcwd(path: *mut u8, path_len: Size) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret =
-        wasix_snapshot_preview1::getcwd(path as i32, path_len as i32, rp0.as_mut_ptr() as i32);
+pub unsafe fn getcwd(path: *mut u8, path_len: *mut Size) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::getcwd(path as i32, path_len as i32);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
+        0 => Ok(()),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -4535,7 +4531,9 @@ pub mod wasix_snapshot_preview1 {
         /// Updates the properties of the rect
         pub fn tty_set(arg0: i32) -> i32;
         /// Returns the current working directory
-        pub fn getcwd(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        /// If the path exceeds the size of the buffer then this function
+        /// will fill the path_len with the needed size and return EOVERFLOW
+        pub fn getcwd(arg0: i32, arg1: i32) -> i32;
         /// Sets the current working directory
         pub fn chdir(arg0: i32, arg1: i32) -> i32;
         /// Creates a new thread by spawning that shares the same
