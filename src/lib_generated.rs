@@ -5,7 +5,7 @@
 use core::fmt;
 use core::mem::MaybeUninit;
 pub type Pointersize = u64;
-pub type Count = u32;
+pub type Size = usize;
 pub type Filesize = u64;
 pub type Timestamp = u64;
 #[repr(transparent)]
@@ -2046,14 +2046,14 @@ pub unsafe fn args_get(argv: *mut *mut u8, argv_buf: *mut u8) -> Result<(), Errn
 ///
 /// Returns the number of arguments and the size of the argument string
 /// data, or an error.
-pub unsafe fn args_sizes_get() -> Result<(Count, Pointersize), Errno> {
-    let mut rp0 = MaybeUninit::<Count>::uninit();
+pub unsafe fn args_sizes_get() -> Result<(Size, Pointersize), Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
     let mut rp1 = MaybeUninit::<Pointersize>::uninit();
     let ret =
         wasix_snapshot_preview1::args_sizes_get(rp0.as_mut_ptr() as i64, rp1.as_mut_ptr() as i64);
     match ret {
         0 => Ok((
-            core::ptr::read(rp0.as_mut_ptr() as i64 as *const Count),
+            core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size),
             core::ptr::read(rp1.as_mut_ptr() as i64 as *const Pointersize),
         )),
         _ => Err(Errno(ret as u16)),
@@ -2077,8 +2077,8 @@ pub unsafe fn environ_get(environ: *mut *mut u8, environ_buf: *mut u8) -> Result
 ///
 /// Returns the number of environment variable arguments and the size of the
 /// environment variable data.
-pub unsafe fn environ_sizes_get() -> Result<(Count, Pointersize), Errno> {
-    let mut rp0 = MaybeUninit::<Count>::uninit();
+pub unsafe fn environ_sizes_get() -> Result<(Size, Pointersize), Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
     let mut rp1 = MaybeUninit::<Pointersize>::uninit();
     let ret = wasix_snapshot_preview1::environ_sizes_get(
         rp0.as_mut_ptr() as i64,
@@ -2086,7 +2086,7 @@ pub unsafe fn environ_sizes_get() -> Result<(Count, Pointersize), Errno> {
     );
     match ret {
         0 => Ok((
-            core::ptr::read(rp0.as_mut_ptr() as i64 as *const Count),
+            core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size),
             core::ptr::read(rp1.as_mut_ptr() as i64 as *const Pointersize),
         )),
         _ => Err(Errno(ret as u16)),
@@ -2311,8 +2311,8 @@ pub unsafe fn fd_filestat_set_times(
 /// ## Return
 ///
 /// The number of bytes read.
-pub unsafe fn fd_pread(fd: Fd, iovs: IovecArray<'_>, offset: Filesize) -> Result<Filesize, Errno> {
-    let mut rp0 = MaybeUninit::<Filesize>::uninit();
+pub unsafe fn fd_pread(fd: Fd, iovs: IovecArray<'_>, offset: Filesize) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
     let ret = wasix_snapshot_preview1::fd_pread(
         fd as i32,
         iovs.as_ptr() as i64,
@@ -2321,7 +2321,7 @@ pub unsafe fn fd_pread(fd: Fd, iovs: IovecArray<'_>, offset: Filesize) -> Result
         rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -2368,12 +2368,8 @@ pub unsafe fn fd_prestat_dir_name(
 /// ## Return
 ///
 /// The number of bytes written.
-pub unsafe fn fd_pwrite(
-    fd: Fd,
-    iovs: CiovecArray<'_>,
-    offset: Filesize,
-) -> Result<Filesize, Errno> {
-    let mut rp0 = MaybeUninit::<Filesize>::uninit();
+pub unsafe fn fd_pwrite(fd: Fd, iovs: CiovecArray<'_>, offset: Filesize) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
     let ret = wasix_snapshot_preview1::fd_pwrite(
         fd as i32,
         iovs.as_ptr() as i64,
@@ -2382,7 +2378,7 @@ pub unsafe fn fd_pwrite(
         rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -2434,8 +2430,8 @@ pub unsafe fn fd_readdir(
     buf: *mut u8,
     buf_len: Pointersize,
     cookie: Dircookie,
-) -> Result<Pointersize, Errno> {
-    let mut rp0 = MaybeUninit::<Pointersize>::uninit();
+) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
     let ret = wasix_snapshot_preview1::fd_readdir(
         fd as i32,
         buf as i64,
@@ -2444,9 +2440,7 @@ pub unsafe fn fd_readdir(
         rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(
-            rp0.as_mut_ptr() as i64 as *const Pointersize
-        )),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -2537,8 +2531,8 @@ pub unsafe fn fd_tell(fd: Fd) -> Result<Filesize, Errno> {
 /// ## Parameters
 ///
 /// * `iovs` - List of scatter/gather vectors from which to retrieve data.
-pub unsafe fn fd_write(fd: Fd, iovs: CiovecArray<'_>) -> Result<Filesize, Errno> {
-    let mut rp0 = MaybeUninit::<Filesize>::uninit();
+pub unsafe fn fd_write(fd: Fd, iovs: CiovecArray<'_>) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
     let ret = wasix_snapshot_preview1::fd_write(
         fd as i32,
         iovs.as_ptr() as i64,
@@ -2546,7 +2540,7 @@ pub unsafe fn fd_write(fd: Fd, iovs: CiovecArray<'_>) -> Result<Filesize, Errno>
         rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -2743,8 +2737,8 @@ pub unsafe fn path_readlink(
     path: &str,
     buf: *mut u8,
     buf_len: Pointersize,
-) -> Result<Pointersize, Errno> {
-    let mut rp0 = MaybeUninit::<Pointersize>::uninit();
+) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
     let ret = wasix_snapshot_preview1::path_readlink(
         fd as i32,
         path.as_ptr() as i64,
@@ -2754,9 +2748,7 @@ pub unsafe fn path_readlink(
         rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(
-            rp0.as_mut_ptr() as i64 as *const Pointersize
-        )),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -2857,9 +2849,9 @@ pub unsafe fn path_unlink_file(fd: Fd, path: &str) -> Result<(), Errno> {
 pub unsafe fn poll_oneoff(
     in_: *const Subscription,
     out: *mut Event,
-    nsubscriptions: Count,
-) -> Result<Count, Errno> {
-    let mut rp0 = MaybeUninit::<Count>::uninit();
+    nsubscriptions: Size,
+) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
     let ret = wasix_snapshot_preview1::poll_oneoff(
         in_ as i64,
         out as i64,
@@ -2867,7 +2859,7 @@ pub unsafe fn poll_oneoff(
         rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Count)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -3043,11 +3035,11 @@ pub unsafe fn thread_join(tid: Tid) -> Result<(), Errno> {
 
 /// Returns the available parallelism which is normally the
 /// number of available cores that can run concurrently
-pub unsafe fn thread_parallelism() -> Result<Count, Errno> {
-    let mut rp0 = MaybeUninit::<Count>::uninit();
+pub unsafe fn thread_parallelism() -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
     let ret = wasix_snapshot_preview1::thread_parallelism(rp0.as_mut_ptr() as i64);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Count)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -3359,9 +3351,9 @@ pub unsafe fn bus_poll(
     bid: OptionBid,
     timeout: Timestamp,
     events: *mut BusEvent,
-    nevents: Count,
-) -> Result<Count, BusError> {
-    let mut rp0 = MaybeUninit::<Count>::uninit();
+    nevents: Size,
+) -> Result<Size, BusError> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
     let ret = wasix_snapshot_preview1::bus_poll(
         &bid as *const _ as i64,
         timeout as i64,
@@ -3370,7 +3362,7 @@ pub unsafe fn bus_poll(
         rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Count)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
         _ => Err(BusError(ret as u32)),
     }
 }
@@ -3612,7 +3604,7 @@ pub unsafe fn port_mac() -> Result<HardwareAddress, Errno> {
 /// ## Return
 ///
 /// The number of IP addresses returned.
-pub unsafe fn port_ip_list(ips: *mut AddrCidr, nips: *mut Count) -> Result<(), Errno> {
+pub unsafe fn port_ip_list(ips: *mut AddrCidr, nips: *mut Size) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::port_ip_list(ips as i64, nips as i64);
     match ret {
         0 => Ok(()),
@@ -3678,7 +3670,7 @@ pub unsafe fn port_route_clear() -> Result<(), Errno> {
 /// ## Parameters
 ///
 /// * `routes` - The buffer where routes will be stored
-pub unsafe fn port_route_list(routes: *mut Route, nroutes: *mut Count) -> Result<(), Errno> {
+pub unsafe fn port_route_list(routes: *mut Route, nroutes: *mut Size) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::port_route_list(routes as i64, nroutes as i64);
     match ret {
         0 => Ok(()),
@@ -3875,7 +3867,7 @@ pub unsafe fn sock_get_timeout(fd: Fd, ty: TimeoutType) -> Result<Timestamp, Err
 ///
 /// * `fd` - Socket descriptor
 /// * `ttl` - Time to live
-pub unsafe fn sock_set_ttl(fd: Fd, ttl: Count) -> Result<(), Errno> {
+pub unsafe fn sock_set_ttl(fd: Fd, ttl: Size) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::sock_set_ttl(fd as i32, ttl as i32);
     match ret {
         0 => Ok(()),
@@ -3888,11 +3880,11 @@ pub unsafe fn sock_set_ttl(fd: Fd, ttl: Count) -> Result<(), Errno> {
 /// ## Parameters
 ///
 /// * `fd` - Socket descriptor
-pub unsafe fn sock_get_ttl(fd: Fd) -> Result<Count, Errno> {
-    let mut rp0 = MaybeUninit::<Count>::uninit();
+pub unsafe fn sock_get_ttl(fd: Fd) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
     let ret = wasix_snapshot_preview1::sock_get_ttl(fd as i32, rp0.as_mut_ptr() as i64);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Count)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -3903,7 +3895,7 @@ pub unsafe fn sock_get_ttl(fd: Fd) -> Result<Count, Errno> {
 ///
 /// * `fd` - Socket descriptor
 /// * `ttl` - Time to live
-pub unsafe fn sock_set_multicast_ttl_v4(fd: Fd, ttl: Count) -> Result<(), Errno> {
+pub unsafe fn sock_set_multicast_ttl_v4(fd: Fd, ttl: Size) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::sock_set_multicast_ttl_v4(fd as i32, ttl as i32);
     match ret {
         0 => Ok(()),
@@ -3916,12 +3908,12 @@ pub unsafe fn sock_set_multicast_ttl_v4(fd: Fd, ttl: Count) -> Result<(), Errno>
 /// ## Parameters
 ///
 /// * `fd` - Socket descriptor
-pub unsafe fn sock_get_multicast_ttl_v4(fd: Fd) -> Result<Count, Errno> {
-    let mut rp0 = MaybeUninit::<Count>::uninit();
+pub unsafe fn sock_get_multicast_ttl_v4(fd: Fd) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
     let ret =
         wasix_snapshot_preview1::sock_get_multicast_ttl_v4(fd as i32, rp0.as_mut_ptr() as i64);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Count)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -4104,7 +4096,7 @@ pub unsafe fn sock_bind(fd: Fd, addr: AddrPort) -> Result<(), Errno> {
 ///
 /// * `fd` - File descriptor of the socket to be bind
 /// * `backlog` - Maximum size of the queue for pending connections
-pub unsafe fn sock_listen(fd: Fd, backlog: Count) -> Result<(), Errno> {
+pub unsafe fn sock_listen(fd: Fd, backlog: Size) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::sock_listen(fd as i32, backlog as i32);
     match ret {
         0 => Ok(()),
@@ -4317,13 +4309,8 @@ pub unsafe fn sock_send_to(
 /// ## Return
 ///
 /// The number of IP addresses returned during the DNS resolution.
-pub unsafe fn resolve(
-    host: &str,
-    port: u16,
-    ips: *mut AddrIp,
-    nips: Count,
-) -> Result<Count, Errno> {
-    let mut rp0 = MaybeUninit::<Count>::uninit();
+pub unsafe fn resolve(host: &str, port: u16, ips: *mut AddrIp, nips: Size) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
     let ret = wasix_snapshot_preview1::resolve(
         host.as_ptr() as i64,
         host.len() as i64,
@@ -4333,7 +4320,7 @@ pub unsafe fn resolve(
         rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Count)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
         _ => Err(Errno(ret as u16)),
     }
 }
