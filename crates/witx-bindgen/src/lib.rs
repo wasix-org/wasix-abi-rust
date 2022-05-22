@@ -330,13 +330,13 @@ impl Render for BuiltinType {
             // overkill for the purposes that we'll be using this type for.
             BuiltinType::U8 { lang_c_char: _ } => src.push_str("u8"),
             BuiltinType::U16 => src.push_str("u16"),
-            BuiltinType::U32 {
+            BuiltinType::U32  => src.push_str("u32"),
+            BuiltinType::U64{
                 lang_ptr_size: false,
-            } => src.push_str("u32"),
-            BuiltinType::U32 {
+            } => src.push_str("u64"),
+            BuiltinType::U64{
                 lang_ptr_size: true,
             } => src.push_str("usize"),
-            BuiltinType::U64 => src.push_str("u64"),
             BuiltinType::S8 => src.push_str("i8"),
             BuiltinType::S16 => src.push_str("i16"),
             BuiltinType::S32 => src.push_str("i32"),
@@ -497,13 +497,16 @@ impl Bindgen for Rust<'_> {
                 results.push(s);
             }
             Instruction::AddrOf => {
-                results.push(format!("&{} as *const _ as i32", operands[0]));
+                results.push(format!("&{} as *const _ as i64", operands[0]));
             }
-            Instruction::I64FromBitflags { .. } | Instruction::I64FromU64 => top_as("i64"),
-            Instruction::I32FromPointer
-            | Instruction::I32FromConstPointer
-            | Instruction::I32FromHandle { .. }
-            | Instruction::I32FromUsize
+
+            Instruction::I64FromBitflags { .. }
+            | Instruction::I64FromPointer
+            | Instruction::I64FromConstPointer
+            | Instruction::I64FromUsize
+            | Instruction::I64FromU64 => top_as("i64"),
+
+            Instruction::I32FromHandle { .. }
             | Instruction::I32FromChar
             | Instruction::I32FromU8
             | Instruction::I32FromS8
@@ -527,8 +530,8 @@ impl Bindgen for Rust<'_> {
             }
             Instruction::ListPointerLength => {
                 let list = operands.pop().unwrap();
-                results.push(format!("{}.as_ptr() as i32", list));
-                results.push(format!("{}.len() as i32", list));
+                results.push(format!("{}.as_ptr() as i64", list));
+                results.push(format!("{}.len() as i64", list));
             }
             Instruction::S8FromI32 => top_as("i8"),
             Instruction::Char8FromI32 | Instruction::U8FromI32 => top_as("u8"),
@@ -538,15 +541,15 @@ impl Bindgen for Rust<'_> {
             Instruction::U32FromI32 => top_as("u32"),
             Instruction::S64FromI64 => {}
             Instruction::U64FromI64 => top_as("u64"),
-            Instruction::UsizeFromI32 => top_as("usize"),
+            Instruction::UsizeFromI64 => top_as("usize"),
             Instruction::HandleFromI32 { .. } => top_as("u32"),
-            Instruction::PointerFromI32 { .. } => top_as("*mut _"),
-            Instruction::ConstPointerFromI32 { .. } => top_as("*const _"),
+            Instruction::PointerFromI64 { .. } => top_as("*mut _"),
+            Instruction::ConstPointerFromI64 { .. } => top_as("*const _"),
             Instruction::BitflagsFromI32 { .. } => unimplemented!(),
             Instruction::BitflagsFromI64 { .. } => unimplemented!(),
 
             Instruction::ReturnPointerGet { n } => {
-                results.push(format!("rp{}.as_mut_ptr() as i32", n));
+                results.push(format!("rp{}.as_mut_ptr() as i64", n));
             }
 
             Instruction::Load { ty } => {

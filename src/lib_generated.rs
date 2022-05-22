@@ -4,7 +4,8 @@
 
 use core::fmt;
 use core::mem::MaybeUninit;
-pub type Size = usize;
+pub type Pointersize = u64;
+pub type Count = u32;
 pub type Filesize = u64;
 pub type Timestamp = u64;
 #[repr(transparent)]
@@ -66,7 +67,7 @@ impl fmt::Debug for Clockid {
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub struct Errno(u16);
+pub struct Errno(u32);
 /// No error occurred. System call completed successfully.
 pub const ERRNO_SUCCESS: Errno = Errno(0);
 /// Argument list too long.
@@ -222,7 +223,7 @@ pub const ERRNO_XDEV: Errno = Errno(75);
 /// Extension: Capabilities insufficient.
 pub const ERRNO_NOTCAPABLE: Errno = Errno(76);
 impl Errno {
-    pub const fn raw(&self) -> u16 {
+    pub const fn raw(&self) -> u32 {
         self.0
     }
 
@@ -624,7 +625,7 @@ pub struct Iovec {
     /// The address of the buffer to be filled.
     pub buf: *mut u8,
     /// The length of the buffer to be filled.
-    pub buf_len: Size,
+    pub buf_len: Pointersize,
 }
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -632,7 +633,7 @@ pub struct Ciovec {
     /// The address of the buffer to be written.
     pub buf: *const u8,
     /// The length of the buffer to be written.
-    pub buf_len: Size,
+    pub buf_len: Pointersize,
 }
 pub type IovecArray<'a> = &'a [Iovec];
 pub type CiovecArray<'a> = &'a [Ciovec];
@@ -1289,9 +1290,9 @@ pub struct BusEventData {
     /// Handle of the call that has made a callback
     pub cid: Cid,
     /// The topic that describes the event that happened
-    pub topic_len: Size,
+    pub topic_len: Pointersize,
     /// The buffer where event data is stored
-    pub buf_len: Size,
+    pub buf_len: Pointersize,
 }
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -1941,14 +1942,6 @@ pub struct Route {
 }
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
-pub struct HttpHeaderSizes {
-    /// Header name length
-    pub key_len: Size,
-    /// Header value length
-    pub val_len: Size,
-}
-#[repr(C)]
-#[derive(Copy, Clone, Debug)]
 pub struct HttpHandles {
     /// File handle used to write the request data
     pub request: Fd,
@@ -1964,7 +1957,7 @@ pub struct HttpStatus {
     pub ok: Bool,
     pub redirected: Bool,
     /// Size of the response
-    pub size: Size,
+    pub size: Filesize,
     /// HTTP status code for this response
     pub status: u16,
 }
@@ -2022,7 +2015,7 @@ impl fmt::Debug for Preopentype {
 #[derive(Copy, Clone, Debug)]
 pub struct PrestatDir {
     /// The length of the directory name for use with `fd_prestat_dir_name`.
-    pub pr_name_len: Size,
+    pub pr_name_len: u32,
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -2040,10 +2033,10 @@ pub struct Prestat {
 /// The size of the array should match that returned by `args_sizes_get`.
 /// Each argument is expected to be `\0` terminated.
 pub unsafe fn args_get(argv: *mut *mut u8, argv_buf: *mut u8) -> Result<(), Errno> {
-    let ret = wasix_snapshot_preview1::args_get(argv as i32, argv_buf as i32);
+    let ret = wasix_snapshot_preview1::args_get(argv as i64, argv_buf as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2053,17 +2046,17 @@ pub unsafe fn args_get(argv: *mut *mut u8, argv_buf: *mut u8) -> Result<(), Errn
 ///
 /// Returns the number of arguments and the size of the argument string
 /// data, or an error.
-pub unsafe fn args_sizes_get() -> Result<(Size, Size), Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
-    let mut rp1 = MaybeUninit::<Size>::uninit();
+pub unsafe fn args_sizes_get() -> Result<(Count, Pointersize), Errno> {
+    let mut rp0 = MaybeUninit::<Count>::uninit();
+    let mut rp1 = MaybeUninit::<Pointersize>::uninit();
     let ret =
-        wasix_snapshot_preview1::args_sizes_get(rp0.as_mut_ptr() as i32, rp1.as_mut_ptr() as i32);
+        wasix_snapshot_preview1::args_sizes_get(rp0.as_mut_ptr() as i64, rp1.as_mut_ptr() as i64);
     match ret {
         0 => Ok((
-            core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size),
-            core::ptr::read(rp1.as_mut_ptr() as i32 as *const Size),
+            core::ptr::read(rp0.as_mut_ptr() as i64 as *const Count),
+            core::ptr::read(rp1.as_mut_ptr() as i64 as *const Pointersize),
         )),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2071,10 +2064,10 @@ pub unsafe fn args_sizes_get() -> Result<(Size, Size), Errno> {
 /// The sizes of the buffers should match that returned by `environ_sizes_get`.
 /// Key/value pairs are expected to be joined with `=`s, and terminated with `\0`s.
 pub unsafe fn environ_get(environ: *mut *mut u8, environ_buf: *mut u8) -> Result<(), Errno> {
-    let ret = wasix_snapshot_preview1::environ_get(environ as i32, environ_buf as i32);
+    let ret = wasix_snapshot_preview1::environ_get(environ as i64, environ_buf as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2084,19 +2077,19 @@ pub unsafe fn environ_get(environ: *mut *mut u8, environ_buf: *mut u8) -> Result
 ///
 /// Returns the number of environment variable arguments and the size of the
 /// environment variable data.
-pub unsafe fn environ_sizes_get() -> Result<(Size, Size), Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
-    let mut rp1 = MaybeUninit::<Size>::uninit();
+pub unsafe fn environ_sizes_get() -> Result<(Count, Pointersize), Errno> {
+    let mut rp0 = MaybeUninit::<Count>::uninit();
+    let mut rp1 = MaybeUninit::<Pointersize>::uninit();
     let ret = wasix_snapshot_preview1::environ_sizes_get(
-        rp0.as_mut_ptr() as i32,
-        rp1.as_mut_ptr() as i32,
+        rp0.as_mut_ptr() as i64,
+        rp1.as_mut_ptr() as i64,
     );
     match ret {
         0 => Ok((
-            core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size),
-            core::ptr::read(rp1.as_mut_ptr() as i32 as *const Size),
+            core::ptr::read(rp0.as_mut_ptr() as i64 as *const Count),
+            core::ptr::read(rp1.as_mut_ptr() as i64 as *const Pointersize),
         )),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2114,10 +2107,10 @@ pub unsafe fn environ_sizes_get() -> Result<(Size, Size), Errno> {
 /// The resolution of the clock, or an error if one happened.
 pub unsafe fn clock_res_get(id: Clockid) -> Result<Timestamp, Errno> {
     let mut rp0 = MaybeUninit::<Timestamp>::uninit();
-    let ret = wasix_snapshot_preview1::clock_res_get(id.0 as i32, rp0.as_mut_ptr() as i32);
+    let ret = wasix_snapshot_preview1::clock_res_get(id.0 as i32, rp0.as_mut_ptr() as i64);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Timestamp)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Timestamp)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2137,11 +2130,11 @@ pub unsafe fn clock_time_get(id: Clockid, precision: Timestamp) -> Result<Timest
     let ret = wasix_snapshot_preview1::clock_time_get(
         id.0 as i32,
         precision as i64,
-        rp0.as_mut_ptr() as i32,
+        rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Timestamp)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Timestamp)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2163,7 +2156,7 @@ pub unsafe fn fd_advise(
         wasix_snapshot_preview1::fd_advise(fd as i32, offset as i64, len as i64, advice.0 as i32);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2178,7 +2171,7 @@ pub unsafe fn fd_allocate(fd: Fd, offset: Filesize, len: Filesize) -> Result<(),
     let ret = wasix_snapshot_preview1::fd_allocate(fd as i32, offset as i64, len as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2188,7 +2181,7 @@ pub unsafe fn fd_close(fd: Fd) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::fd_close(fd as i32);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2198,7 +2191,7 @@ pub unsafe fn fd_datasync(fd: Fd) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::fd_datasync(fd as i32);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2210,10 +2203,10 @@ pub unsafe fn fd_datasync(fd: Fd) -> Result<(), Errno> {
 /// The buffer where the file descriptor's attributes are stored.
 pub unsafe fn fd_fdstat_get(fd: Fd) -> Result<Fdstat, Errno> {
     let mut rp0 = MaybeUninit::<Fdstat>::uninit();
-    let ret = wasix_snapshot_preview1::fd_fdstat_get(fd as i32, rp0.as_mut_ptr() as i32);
+    let ret = wasix_snapshot_preview1::fd_fdstat_get(fd as i32, rp0.as_mut_ptr() as i64);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fdstat)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Fdstat)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2227,7 +2220,7 @@ pub unsafe fn fd_fdstat_set_flags(fd: Fd, flags: Fdflags) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::fd_fdstat_set_flags(fd as i32, flags as i32);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2249,7 +2242,7 @@ pub unsafe fn fd_fdstat_set_rights(
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2260,10 +2253,10 @@ pub unsafe fn fd_fdstat_set_rights(
 /// The buffer where the file's attributes are stored.
 pub unsafe fn fd_filestat_get(fd: Fd) -> Result<Filestat, Errno> {
     let mut rp0 = MaybeUninit::<Filestat>::uninit();
-    let ret = wasix_snapshot_preview1::fd_filestat_get(fd as i32, rp0.as_mut_ptr() as i32);
+    let ret = wasix_snapshot_preview1::fd_filestat_get(fd as i32, rp0.as_mut_ptr() as i64);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Filestat)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filestat)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2277,7 +2270,7 @@ pub unsafe fn fd_filestat_set_size(fd: Fd, size: Filesize) -> Result<(), Errno> 
     let ret = wasix_snapshot_preview1::fd_filestat_set_size(fd as i32, size as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2303,7 +2296,7 @@ pub unsafe fn fd_filestat_set_times(
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2318,18 +2311,18 @@ pub unsafe fn fd_filestat_set_times(
 /// ## Return
 ///
 /// The number of bytes read.
-pub unsafe fn fd_pread(fd: Fd, iovs: IovecArray<'_>, offset: Filesize) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
+pub unsafe fn fd_pread(fd: Fd, iovs: IovecArray<'_>, offset: Filesize) -> Result<Filesize, Errno> {
+    let mut rp0 = MaybeUninit::<Filesize>::uninit();
     let ret = wasix_snapshot_preview1::fd_pread(
         fd as i32,
-        iovs.as_ptr() as i32,
-        iovs.len() as i32,
+        iovs.as_ptr() as i64,
+        iovs.len() as i64,
         offset as i64,
-        rp0.as_mut_ptr() as i32,
+        rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2340,10 +2333,10 @@ pub unsafe fn fd_pread(fd: Fd, iovs: IovecArray<'_>, offset: Filesize) -> Result
 /// The buffer where the description is stored.
 pub unsafe fn fd_prestat_get(fd: Fd) -> Result<Prestat, Errno> {
     let mut rp0 = MaybeUninit::<Prestat>::uninit();
-    let ret = wasix_snapshot_preview1::fd_prestat_get(fd as i32, rp0.as_mut_ptr() as i32);
+    let ret = wasix_snapshot_preview1::fd_prestat_get(fd as i32, rp0.as_mut_ptr() as i64);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Prestat)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Prestat)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2352,11 +2345,15 @@ pub unsafe fn fd_prestat_get(fd: Fd) -> Result<Prestat, Errno> {
 /// ## Parameters
 ///
 /// * `path` - A buffer into which to write the preopened directory name.
-pub unsafe fn fd_prestat_dir_name(fd: Fd, path: *mut u8, path_len: Size) -> Result<(), Errno> {
-    let ret = wasix_snapshot_preview1::fd_prestat_dir_name(fd as i32, path as i32, path_len as i32);
+pub unsafe fn fd_prestat_dir_name(
+    fd: Fd,
+    path: *mut u8,
+    path_len: Pointersize,
+) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::fd_prestat_dir_name(fd as i32, path as i64, path_len as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2371,18 +2368,22 @@ pub unsafe fn fd_prestat_dir_name(fd: Fd, path: *mut u8, path_len: Size) -> Resu
 /// ## Return
 ///
 /// The number of bytes written.
-pub unsafe fn fd_pwrite(fd: Fd, iovs: CiovecArray<'_>, offset: Filesize) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
+pub unsafe fn fd_pwrite(
+    fd: Fd,
+    iovs: CiovecArray<'_>,
+    offset: Filesize,
+) -> Result<Filesize, Errno> {
+    let mut rp0 = MaybeUninit::<Filesize>::uninit();
     let ret = wasix_snapshot_preview1::fd_pwrite(
         fd as i32,
-        iovs.as_ptr() as i32,
-        iovs.len() as i32,
+        iovs.as_ptr() as i64,
+        iovs.len() as i64,
         offset as i64,
-        rp0.as_mut_ptr() as i32,
+        rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2396,17 +2397,17 @@ pub unsafe fn fd_pwrite(fd: Fd, iovs: CiovecArray<'_>, offset: Filesize) -> Resu
 /// ## Return
 ///
 /// The number of bytes read.
-pub unsafe fn fd_read(fd: Fd, iovs: IovecArray<'_>) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
+pub unsafe fn fd_read(fd: Fd, iovs: IovecArray<'_>) -> Result<Filesize, Errno> {
+    let mut rp0 = MaybeUninit::<Filesize>::uninit();
     let ret = wasix_snapshot_preview1::fd_read(
         fd as i32,
-        iovs.as_ptr() as i32,
-        iovs.len() as i32,
-        rp0.as_mut_ptr() as i32,
+        iovs.as_ptr() as i64,
+        iovs.len() as i64,
+        rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2431,20 +2432,22 @@ pub unsafe fn fd_read(fd: Fd, iovs: IovecArray<'_>) -> Result<Size, Errno> {
 pub unsafe fn fd_readdir(
     fd: Fd,
     buf: *mut u8,
-    buf_len: Size,
+    buf_len: Pointersize,
     cookie: Dircookie,
-) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
+) -> Result<Pointersize, Errno> {
+    let mut rp0 = MaybeUninit::<Pointersize>::uninit();
     let ret = wasix_snapshot_preview1::fd_readdir(
         fd as i32,
-        buf as i32,
-        buf_len as i32,
+        buf as i64,
+        buf_len as i64,
         cookie as i64,
-        rp0.as_mut_ptr() as i32,
+        rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(
+            rp0.as_mut_ptr() as i64 as *const Pointersize
+        )),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2464,17 +2467,17 @@ pub unsafe fn fd_renumber(fd: Fd, to: Fd) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::fd_renumber(fd as i32, to as i32);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
 /// Atomically duplicate a file handle.
 pub unsafe fn fd_dup(fd: Fd) -> Result<Fd, Errno> {
     let mut rp0 = MaybeUninit::<Fd>::uninit();
-    let ret = wasix_snapshot_preview1::fd_dup(fd as i32, rp0.as_mut_ptr() as i32);
+    let ret = wasix_snapshot_preview1::fd_dup(fd as i32, rp0.as_mut_ptr() as i64);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Fd)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2495,11 +2498,11 @@ pub unsafe fn fd_seek(fd: Fd, offset: Filedelta, whence: Whence) -> Result<Files
         fd as i32,
         offset,
         whence.0 as i32,
-        rp0.as_mut_ptr() as i32,
+        rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Filesize)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2509,7 +2512,7 @@ pub unsafe fn fd_sync(fd: Fd) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::fd_sync(fd as i32);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2521,10 +2524,10 @@ pub unsafe fn fd_sync(fd: Fd) -> Result<(), Errno> {
 /// The current offset of the file descriptor, relative to the start of the file.
 pub unsafe fn fd_tell(fd: Fd) -> Result<Filesize, Errno> {
     let mut rp0 = MaybeUninit::<Filesize>::uninit();
-    let ret = wasix_snapshot_preview1::fd_tell(fd as i32, rp0.as_mut_ptr() as i32);
+    let ret = wasix_snapshot_preview1::fd_tell(fd as i32, rp0.as_mut_ptr() as i64);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Filesize)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2534,17 +2537,17 @@ pub unsafe fn fd_tell(fd: Fd) -> Result<Filesize, Errno> {
 /// ## Parameters
 ///
 /// * `iovs` - List of scatter/gather vectors from which to retrieve data.
-pub unsafe fn fd_write(fd: Fd, iovs: CiovecArray<'_>) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
+pub unsafe fn fd_write(fd: Fd, iovs: CiovecArray<'_>) -> Result<Filesize, Errno> {
+    let mut rp0 = MaybeUninit::<Filesize>::uninit();
     let ret = wasix_snapshot_preview1::fd_write(
         fd as i32,
-        iovs.as_ptr() as i32,
-        iovs.len() as i32,
-        rp0.as_mut_ptr() as i32,
+        iovs.as_ptr() as i64,
+        iovs.len() as i64,
+        rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2554,13 +2557,13 @@ pub unsafe fn fd_write(fd: Fd, iovs: CiovecArray<'_>) -> Result<Size, Errno> {
 pub unsafe fn pipe() -> Result<(Fd, Fd), Errno> {
     let mut rp0 = MaybeUninit::<Fd>::uninit();
     let mut rp1 = MaybeUninit::<Fd>::uninit();
-    let ret = wasix_snapshot_preview1::pipe(rp0.as_mut_ptr() as i32, rp1.as_mut_ptr() as i32);
+    let ret = wasix_snapshot_preview1::pipe(rp0.as_mut_ptr() as i64, rp1.as_mut_ptr() as i64);
     match ret {
         0 => Ok((
-            core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd),
-            core::ptr::read(rp1.as_mut_ptr() as i32 as *const Fd),
+            core::ptr::read(rp0.as_mut_ptr() as i64 as *const Fd),
+            core::ptr::read(rp1.as_mut_ptr() as i64 as *const Fd),
         )),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2573,12 +2576,12 @@ pub unsafe fn pipe() -> Result<(Fd, Fd), Errno> {
 pub unsafe fn path_create_directory(fd: Fd, path: &str) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::path_create_directory(
         fd as i32,
-        path.as_ptr() as i32,
-        path.len() as i32,
+        path.as_ptr() as i64,
+        path.len() as i64,
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2598,13 +2601,13 @@ pub unsafe fn path_filestat_get(fd: Fd, flags: Lookupflags, path: &str) -> Resul
     let ret = wasix_snapshot_preview1::path_filestat_get(
         fd as i32,
         flags as i32,
-        path.as_ptr() as i32,
-        path.len() as i32,
-        rp0.as_mut_ptr() as i32,
+        path.as_ptr() as i64,
+        path.len() as i64,
+        rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Filestat)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filestat)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2629,15 +2632,15 @@ pub unsafe fn path_filestat_set_times(
     let ret = wasix_snapshot_preview1::path_filestat_set_times(
         fd as i32,
         flags as i32,
-        path.as_ptr() as i32,
-        path.len() as i32,
+        path.as_ptr() as i64,
+        path.len() as i64,
         atim as i64,
         mtim as i64,
         fst_flags as i32,
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2660,15 +2663,15 @@ pub unsafe fn path_link(
     let ret = wasix_snapshot_preview1::path_link(
         old_fd as i32,
         old_flags as i32,
-        old_path.as_ptr() as i32,
-        old_path.len() as i32,
+        old_path.as_ptr() as i64,
+        old_path.len() as i64,
         new_fd as i32,
-        new_path.as_ptr() as i32,
-        new_path.len() as i32,
+        new_path.as_ptr() as i64,
+        new_path.len() as i64,
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2710,17 +2713,17 @@ pub unsafe fn path_open(
     let ret = wasix_snapshot_preview1::path_open(
         fd as i32,
         dirflags as i32,
-        path.as_ptr() as i32,
-        path.len() as i32,
+        path.as_ptr() as i64,
+        path.len() as i64,
         oflags as i32,
         fs_rights_base as i64,
         fs_rights_inheriting as i64,
         fdflags as i32,
-        rp0.as_mut_ptr() as i32,
+        rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Fd)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2739,20 +2742,22 @@ pub unsafe fn path_readlink(
     fd: Fd,
     path: &str,
     buf: *mut u8,
-    buf_len: Size,
-) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
+    buf_len: Pointersize,
+) -> Result<Pointersize, Errno> {
+    let mut rp0 = MaybeUninit::<Pointersize>::uninit();
     let ret = wasix_snapshot_preview1::path_readlink(
         fd as i32,
-        path.as_ptr() as i32,
-        path.len() as i32,
-        buf as i32,
-        buf_len as i32,
-        rp0.as_mut_ptr() as i32,
+        path.as_ptr() as i64,
+        path.len() as i64,
+        buf as i64,
+        buf_len as i64,
+        rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(
+            rp0.as_mut_ptr() as i64 as *const Pointersize
+        )),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2766,12 +2771,12 @@ pub unsafe fn path_readlink(
 pub unsafe fn path_remove_directory(fd: Fd, path: &str) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::path_remove_directory(
         fd as i32,
-        path.as_ptr() as i32,
-        path.len() as i32,
+        path.as_ptr() as i64,
+        path.len() as i64,
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2786,15 +2791,15 @@ pub unsafe fn path_remove_directory(fd: Fd, path: &str) -> Result<(), Errno> {
 pub unsafe fn path_rename(fd: Fd, old_path: &str, new_fd: Fd, new_path: &str) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::path_rename(
         fd as i32,
-        old_path.as_ptr() as i32,
-        old_path.len() as i32,
+        old_path.as_ptr() as i64,
+        old_path.len() as i64,
         new_fd as i32,
-        new_path.as_ptr() as i32,
-        new_path.len() as i32,
+        new_path.as_ptr() as i64,
+        new_path.len() as i64,
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2807,15 +2812,15 @@ pub unsafe fn path_rename(fd: Fd, old_path: &str, new_fd: Fd, new_path: &str) ->
 /// * `new_path` - The destination path at which to create the symbolic link.
 pub unsafe fn path_symlink(old_path: &str, fd: Fd, new_path: &str) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::path_symlink(
-        old_path.as_ptr() as i32,
-        old_path.len() as i32,
+        old_path.as_ptr() as i64,
+        old_path.len() as i64,
         fd as i32,
-        new_path.as_ptr() as i32,
-        new_path.len() as i32,
+        new_path.as_ptr() as i64,
+        new_path.len() as i64,
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2829,12 +2834,12 @@ pub unsafe fn path_symlink(old_path: &str, fd: Fd, new_path: &str) -> Result<(),
 pub unsafe fn path_unlink_file(fd: Fd, path: &str) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::path_unlink_file(
         fd as i32,
-        path.as_ptr() as i32,
-        path.len() as i32,
+        path.as_ptr() as i64,
+        path.len() as i64,
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2852,18 +2857,18 @@ pub unsafe fn path_unlink_file(fd: Fd, path: &str) -> Result<(), Errno> {
 pub unsafe fn poll_oneoff(
     in_: *const Subscription,
     out: *mut Event,
-    nsubscriptions: Size,
-) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
+    nsubscriptions: Count,
+) -> Result<Count, Errno> {
+    let mut rp0 = MaybeUninit::<Count>::uninit();
     let ret = wasix_snapshot_preview1::poll_oneoff(
-        in_ as i32,
-        out as i32,
+        in_ as i64,
+        out as i64,
         nsubscriptions as i32,
-        rp0.as_mut_ptr() as i32,
+        rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Count)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2888,7 +2893,7 @@ pub unsafe fn proc_raise(sig: Signal) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::proc_raise(sig.0 as i32);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2898,7 +2903,7 @@ pub unsafe fn sched_yield() -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::sched_yield();
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2912,29 +2917,29 @@ pub unsafe fn sched_yield() -> Result<(), Errno> {
 /// ## Parameters
 ///
 /// * `buf` - The buffer to fill with random data.
-pub unsafe fn random_get(buf: *mut u8, buf_len: Size) -> Result<(), Errno> {
-    let ret = wasix_snapshot_preview1::random_get(buf as i32, buf_len as i32);
+pub unsafe fn random_get(buf: *mut u8, buf_len: Pointersize) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::random_get(buf as i64, buf_len as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
 /// Retrieves the current state of the TTY
 pub unsafe fn tty_get(state: *mut Tty) -> Result<(), Errno> {
-    let ret = wasix_snapshot_preview1::tty_get(state as i32);
+    let ret = wasix_snapshot_preview1::tty_get(state as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
 /// Updates the properties of the rect
 pub unsafe fn tty_set(state: *mut Tty) -> Result<(), Errno> {
-    let ret = wasix_snapshot_preview1::tty_set(state as i32);
+    let ret = wasix_snapshot_preview1::tty_set(state as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2945,11 +2950,11 @@ pub unsafe fn tty_set(state: *mut Tty) -> Result<(), Errno> {
 /// ## Parameters
 ///
 /// * `path` - The buffer where current directory is stored
-pub unsafe fn getcwd(path: *mut u8, path_len: *mut Size) -> Result<(), Errno> {
-    let ret = wasix_snapshot_preview1::getcwd(path as i32, path_len as i32);
+pub unsafe fn getcwd(path: *mut u8, path_len: *mut Pointersize) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::getcwd(path as i64, path_len as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2959,10 +2964,10 @@ pub unsafe fn getcwd(path: *mut u8, path_len: *mut Size) -> Result<(), Errno> {
 ///
 /// * `path` - Path to change the current working directory to
 pub unsafe fn chdir(path: &str) -> Result<(), Errno> {
-    let ret = wasix_snapshot_preview1::chdir(path.as_ptr() as i32, path.len() as i32);
+    let ret = wasix_snapshot_preview1::chdir(path.as_ptr() as i64, path.len() as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -2986,15 +2991,15 @@ pub unsafe fn chdir(path: &str) -> Result<(), Errno> {
 pub unsafe fn thread_spawn(name: &str, user_data: u64, reactor: Bool) -> Result<Tid, Errno> {
     let mut rp0 = MaybeUninit::<Tid>::uninit();
     let ret = wasix_snapshot_preview1::thread_spawn(
-        name.as_ptr() as i32,
-        name.len() as i32,
+        name.as_ptr() as i64,
+        name.len() as i64,
         user_data as i64,
         reactor.0 as i32,
-        rp0.as_mut_ptr() as i32,
+        rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Tid)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Tid)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3007,7 +3012,7 @@ pub unsafe fn thread_sleep(duration: Timestamp) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::thread_sleep(duration as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3015,10 +3020,10 @@ pub unsafe fn thread_sleep(duration: Timestamp) -> Result<(), Errno> {
 /// (threads indices are sequencial from zero)
 pub unsafe fn thread_id() -> Result<Tid, Errno> {
     let mut rp0 = MaybeUninit::<Tid>::uninit();
-    let ret = wasix_snapshot_preview1::thread_id(rp0.as_mut_ptr() as i32);
+    let ret = wasix_snapshot_preview1::thread_id(rp0.as_mut_ptr() as i64);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Tid)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Tid)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3032,28 +3037,28 @@ pub unsafe fn thread_join(tid: Tid) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::thread_join(tid as i32);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
 /// Returns the available parallelism which is normally the
 /// number of available cores that can run concurrently
-pub unsafe fn thread_parallelism() -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasix_snapshot_preview1::thread_parallelism(rp0.as_mut_ptr() as i32);
+pub unsafe fn thread_parallelism() -> Result<Count, Errno> {
+    let mut rp0 = MaybeUninit::<Count>::uninit();
+    let ret = wasix_snapshot_preview1::thread_parallelism(rp0.as_mut_ptr() as i64);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Count)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
 /// Returns the handle of the current process
 pub unsafe fn getpid() -> Result<Pid, Errno> {
     let mut rp0 = MaybeUninit::<Pid>::uninit();
-    let ret = wasix_snapshot_preview1::getpid(rp0.as_mut_ptr() as i32);
+    let ret = wasix_snapshot_preview1::getpid(rp0.as_mut_ptr() as i64);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Pid)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Pid)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3101,22 +3106,22 @@ pub unsafe fn bus_spawn_local(
 ) -> Result<BusHandles, BusError> {
     let mut rp0 = MaybeUninit::<BusHandles>::uninit();
     let ret = wasix_snapshot_preview1::bus_spawn_local(
-        name.as_ptr() as i32,
-        name.len() as i32,
+        name.as_ptr() as i64,
+        name.len() as i64,
         chroot.0 as i32,
-        args.as_ptr() as i32,
-        args.len() as i32,
-        preopen.as_ptr() as i32,
-        preopen.len() as i32,
+        args.as_ptr() as i64,
+        args.len() as i64,
+        preopen.as_ptr() as i64,
+        preopen.len() as i64,
         stdin.0 as i32,
         stdout.0 as i32,
         stderr.0 as i32,
-        working_dir.as_ptr() as i32,
-        working_dir.len() as i32,
-        rp0.as_mut_ptr() as i32,
+        working_dir.as_ptr() as i64,
+        working_dir.len() as i64,
+        rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const BusHandles)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const BusHandles)),
         _ => Err(BusError(ret as u32)),
     }
 }
@@ -3157,26 +3162,26 @@ pub unsafe fn bus_spawn_remote(
 ) -> Result<BusHandles, BusError> {
     let mut rp0 = MaybeUninit::<BusHandles>::uninit();
     let ret = wasix_snapshot_preview1::bus_spawn_remote(
-        name.as_ptr() as i32,
-        name.len() as i32,
+        name.as_ptr() as i64,
+        name.len() as i64,
         chroot.0 as i32,
-        args.as_ptr() as i32,
-        args.len() as i32,
-        preopen.as_ptr() as i32,
-        preopen.len() as i32,
-        working_dir.as_ptr() as i32,
-        working_dir.len() as i32,
+        args.as_ptr() as i64,
+        args.len() as i64,
+        preopen.as_ptr() as i64,
+        preopen.len() as i64,
+        working_dir.as_ptr() as i64,
+        working_dir.len() as i64,
         stdin.0 as i32,
         stdout.0 as i32,
         stderr.0 as i32,
-        instance.as_ptr() as i32,
-        instance.len() as i32,
-        token.as_ptr() as i32,
-        token.len() as i32,
-        rp0.as_mut_ptr() as i32,
+        instance.as_ptr() as i64,
+        instance.len() as i64,
+        token.as_ptr() as i64,
+        token.len() as i64,
+        rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const BusHandles)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const BusHandles)),
         _ => Err(BusError(ret as u32)),
     }
 }
@@ -3217,17 +3222,17 @@ pub unsafe fn bus_invoke(
     let mut rp0 = MaybeUninit::<Cid>::uninit();
     let ret = wasix_snapshot_preview1::bus_invoke(
         bid as i32,
-        &parent as *const _ as i32,
+        &parent as *const _ as i64,
         keep_alive.0 as i32,
-        topic.as_ptr() as i32,
-        topic.len() as i32,
+        topic.as_ptr() as i64,
+        topic.len() as i64,
         format.0 as i32,
-        buf.as_ptr() as i32,
-        buf.len() as i32,
-        rp0.as_mut_ptr() as i32,
+        buf.as_ptr() as i64,
+        buf.len() as i64,
+        rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Cid)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Cid)),
         _ => Err(BusError(ret as u32)),
     }
 }
@@ -3279,8 +3284,8 @@ pub unsafe fn bus_reply(
     let ret = wasix_snapshot_preview1::bus_reply(
         cid as i32,
         format.0 as i32,
-        buf.as_ptr() as i32,
-        buf.len() as i32,
+        buf.as_ptr() as i64,
+        buf.len() as i64,
     );
     match ret {
         0 => Ok(()),
@@ -3305,11 +3310,11 @@ pub unsafe fn bus_callback(
 ) -> Result<(), BusError> {
     let ret = wasix_snapshot_preview1::bus_callback(
         cid as i32,
-        topic.as_ptr() as i32,
-        topic.len() as i32,
+        topic.as_ptr() as i64,
+        topic.len() as i64,
         format.0 as i32,
-        buf.as_ptr() as i32,
-        buf.len() as i32,
+        buf.as_ptr() as i64,
+        buf.len() as i64,
     );
     match ret {
         0 => Ok(()),
@@ -3326,9 +3331,9 @@ pub unsafe fn bus_callback(
 /// * `topic` - Topic that describes the process will listen forcalls on
 pub unsafe fn bus_listen(parent: OptionCid, topic: &str) -> Result<(), BusError> {
     let ret = wasix_snapshot_preview1::bus_listen(
-        &parent as *const _ as i32,
-        topic.as_ptr() as i32,
-        topic.len() as i32,
+        &parent as *const _ as i64,
+        topic.as_ptr() as i64,
+        topic.len() as i64,
     );
     match ret {
         0 => Ok(()),
@@ -3354,18 +3359,18 @@ pub unsafe fn bus_poll(
     bid: OptionBid,
     timeout: Timestamp,
     events: *mut BusEvent,
-    nevents: Size,
-) -> Result<Size, BusError> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
+    nevents: Count,
+) -> Result<Count, BusError> {
+    let mut rp0 = MaybeUninit::<Count>::uninit();
     let ret = wasix_snapshot_preview1::bus_poll(
-        &bid as *const _ as i32,
+        &bid as *const _ as i64,
         timeout as i64,
-        events as i32,
+        events as i64,
         nevents as i32,
-        rp0.as_mut_ptr() as i32,
+        rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Count)),
         _ => Err(BusError(ret as u32)),
     }
 }
@@ -3388,23 +3393,23 @@ pub unsafe fn bus_poll_data(
     bid: OptionBid,
     timeout: Timestamp,
     topic: *mut u8,
-    topic_len: Size,
+    topic_len: Pointersize,
     buf: *mut u8,
-    buf_len: Size,
+    buf_len: Pointersize,
 ) -> Result<BusEventData, BusError> {
     let mut rp0 = MaybeUninit::<BusEventData>::uninit();
     let ret = wasix_snapshot_preview1::bus_poll_data(
-        &bid as *const _ as i32,
+        &bid as *const _ as i64,
         timeout as i64,
-        topic as i32,
-        topic_len as i32,
-        buf as i32,
-        buf_len as i32,
-        rp0.as_mut_ptr() as i32,
+        topic as i64,
+        topic_len as i64,
+        buf as i64,
+        buf_len as i64,
+        rp0.as_mut_ptr() as i64,
     );
     match ret {
         0 => Ok(core::ptr::read(
-            rp0.as_mut_ptr() as i32 as *const BusEventData
+            rp0.as_mut_ptr() as i64 as *const BusEventData
         )),
         _ => Err(BusError(ret as u32)),
     }
@@ -3422,13 +3427,13 @@ pub unsafe fn bus_poll_data(
 pub unsafe fn ws_connect(url: &str) -> Result<Fd, Errno> {
     let mut rp0 = MaybeUninit::<Fd>::uninit();
     let ret = wasix_snapshot_preview1::ws_connect(
-        url.as_ptr() as i32,
-        url.len() as i32,
-        rp0.as_mut_ptr() as i32,
+        url.as_ptr() as i64,
+        url.len() as i64,
+        rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Fd)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3455,20 +3460,20 @@ pub unsafe fn http_request(
 ) -> Result<HttpHandles, Errno> {
     let mut rp0 = MaybeUninit::<HttpHandles>::uninit();
     let ret = wasix_snapshot_preview1::http_request(
-        url.as_ptr() as i32,
-        url.len() as i32,
-        method.as_ptr() as i32,
-        method.len() as i32,
-        headers.as_ptr() as i32,
-        headers.len() as i32,
+        url.as_ptr() as i64,
+        url.len() as i64,
+        method.as_ptr() as i64,
+        method.len() as i64,
+        headers.as_ptr() as i64,
+        headers.len() as i64,
         gzip.0 as i32,
-        rp0.as_mut_ptr() as i32,
+        rp0.as_mut_ptr() as i64,
     );
     match ret {
         0 => Ok(core::ptr::read(
-            rp0.as_mut_ptr() as i32 as *const HttpHandles
+            rp0.as_mut_ptr() as i64 as *const HttpHandles
         )),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3487,21 +3492,21 @@ pub unsafe fn http_status(
     fd: Fd,
     status: *mut HttpStatus,
     status_text: *mut u8,
-    status_text_len: *mut Size,
+    status_text_len: *mut Pointersize,
     headers: *mut u8,
-    headers_len: *mut Size,
+    headers_len: *mut Pointersize,
 ) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::http_status(
         fd as i32,
-        status as i32,
-        status_text as i32,
-        status_text_len as i32,
-        headers as i32,
-        headers_len as i32,
+        status as i64,
+        status_text as i64,
+        status_text_len as i64,
+        headers as i64,
+        headers_len as i64,
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3518,15 +3523,15 @@ pub unsafe fn port_bridge(
     security: StreamSecurity,
 ) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::port_bridge(
-        network.as_ptr() as i32,
-        network.len() as i32,
-        token.as_ptr() as i32,
-        token.len() as i32,
+        network.as_ptr() as i64,
+        network.len() as i64,
+        token.as_ptr() as i64,
+        token.len() as i64,
         security as i32,
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3535,7 +3540,7 @@ pub unsafe fn port_unbridge() -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::port_unbridge();
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3544,7 +3549,7 @@ pub unsafe fn port_dhcp_acquire() -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::port_dhcp_acquire();
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3554,10 +3559,10 @@ pub unsafe fn port_dhcp_acquire() -> Result<(), Errno> {
 ///
 /// * `ip` - IP address to be added
 pub unsafe fn port_ip_add(ip: AddrCidr) -> Result<(), Errno> {
-    let ret = wasix_snapshot_preview1::port_ip_add(&ip as *const _ as i32);
+    let ret = wasix_snapshot_preview1::port_ip_add(&ip as *const _ as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3567,10 +3572,10 @@ pub unsafe fn port_ip_add(ip: AddrCidr) -> Result<(), Errno> {
 ///
 /// * `ip` - IP address to be removed
 pub unsafe fn port_ip_remove(ip: AddrIp) -> Result<(), Errno> {
-    let ret = wasix_snapshot_preview1::port_ip_remove(&ip as *const _ as i32);
+    let ret = wasix_snapshot_preview1::port_ip_remove(&ip as *const _ as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3579,19 +3584,19 @@ pub unsafe fn port_ip_clear() -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::port_ip_clear();
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
 /// Returns the MAC address of the local port
 pub unsafe fn port_mac() -> Result<HardwareAddress, Errno> {
     let mut rp0 = MaybeUninit::<HardwareAddress>::uninit();
-    let ret = wasix_snapshot_preview1::port_mac(rp0.as_mut_ptr() as i32);
+    let ret = wasix_snapshot_preview1::port_mac(rp0.as_mut_ptr() as i64);
     match ret {
         0 => Ok(core::ptr::read(
-            rp0.as_mut_ptr() as i32 as *const HardwareAddress
+            rp0.as_mut_ptr() as i64 as *const HardwareAddress
         )),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3607,11 +3612,11 @@ pub unsafe fn port_mac() -> Result<HardwareAddress, Errno> {
 /// ## Return
 ///
 /// The number of IP addresses returned.
-pub unsafe fn port_ip_list(ips: *mut AddrCidr, nips: *mut Size) -> Result<(), Errno> {
-    let ret = wasix_snapshot_preview1::port_ip_list(ips as i32, nips as i32);
+pub unsafe fn port_ip_list(ips: *mut AddrCidr, nips: *mut Count) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::port_ip_list(ips as i64, nips as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3621,10 +3626,10 @@ pub unsafe fn port_ip_list(ips: *mut AddrCidr, nips: *mut Size) -> Result<(), Er
 ///
 /// * `ip` - IP address of the default gateway
 pub unsafe fn port_gateway_set(ip: AddrIp) -> Result<(), Errno> {
-    let ret = wasix_snapshot_preview1::port_gateway_set(&ip as *const _ as i32);
+    let ret = wasix_snapshot_preview1::port_gateway_set(&ip as *const _ as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3636,23 +3641,23 @@ pub unsafe fn port_route_add(
     expires_at: OptionTimestamp,
 ) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::port_route_add(
-        &cidr as *const _ as i32,
-        &via_router as *const _ as i32,
-        &preferred_until as *const _ as i32,
-        &expires_at as *const _ as i32,
+        &cidr as *const _ as i64,
+        &via_router as *const _ as i64,
+        &preferred_until as *const _ as i64,
+        &expires_at as *const _ as i64,
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
 /// Removes an existing route from the local port
 pub unsafe fn port_route_remove(cidr: AddrIp) -> Result<(), Errno> {
-    let ret = wasix_snapshot_preview1::port_route_remove(&cidr as *const _ as i32);
+    let ret = wasix_snapshot_preview1::port_route_remove(&cidr as *const _ as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3661,7 +3666,7 @@ pub unsafe fn port_route_clear() -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::port_route_clear();
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3673,11 +3678,11 @@ pub unsafe fn port_route_clear() -> Result<(), Errno> {
 /// ## Parameters
 ///
 /// * `routes` - The buffer where routes will be stored
-pub unsafe fn port_route_list(routes: *mut Route, nroutes: *mut Size) -> Result<(), Errno> {
-    let ret = wasix_snapshot_preview1::port_route_list(routes as i32, nroutes as i32);
+pub unsafe fn port_route_list(routes: *mut Route, nroutes: *mut Count) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::port_route_list(routes as i64, nroutes as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3691,17 +3696,17 @@ pub unsafe fn sock_shutdown(fd: Fd, how: Sdflags) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::sock_shutdown(fd as i32, how as i32);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
 /// Returns the current status of a socket
 pub unsafe fn sock_status(fd: Fd) -> Result<SockStatus, Errno> {
     let mut rp0 = MaybeUninit::<SockStatus>::uninit();
-    let ret = wasix_snapshot_preview1::sock_status(fd as i32, rp0.as_mut_ptr() as i32);
+    let ret = wasix_snapshot_preview1::sock_status(fd as i32, rp0.as_mut_ptr() as i64);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const SockStatus)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const SockStatus)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3717,10 +3722,10 @@ pub unsafe fn sock_status(fd: Fd) -> Result<SockStatus, Errno> {
 /// * `fd` - Socket that the address is bound to
 pub unsafe fn sock_addr_local(fd: Fd) -> Result<AddrPort, Errno> {
     let mut rp0 = MaybeUninit::<AddrPort>::uninit();
-    let ret = wasix_snapshot_preview1::sock_addr_local(fd as i32, rp0.as_mut_ptr() as i32);
+    let ret = wasix_snapshot_preview1::sock_addr_local(fd as i32, rp0.as_mut_ptr() as i64);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const AddrPort)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const AddrPort)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3736,10 +3741,10 @@ pub unsafe fn sock_addr_local(fd: Fd) -> Result<AddrPort, Errno> {
 /// * `fd` - Socket that the address is bound to
 pub unsafe fn sock_addr_peer(fd: Fd) -> Result<AddrPort, Errno> {
     let mut rp0 = MaybeUninit::<AddrPort>::uninit();
-    let ret = wasix_snapshot_preview1::sock_addr_peer(fd as i32, rp0.as_mut_ptr() as i32);
+    let ret = wasix_snapshot_preview1::sock_addr_peer(fd as i32, rp0.as_mut_ptr() as i64);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const AddrPort)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const AddrPort)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3763,10 +3768,10 @@ pub unsafe fn sock_addr_peer(fd: Fd) -> Result<AddrPort, Errno> {
 pub unsafe fn sock_open(af: AddressFamily, socktype: SockType) -> Result<Fd, Errno> {
     let mut rp0 = MaybeUninit::<Fd>::uninit();
     let ret =
-        wasix_snapshot_preview1::sock_open(af.0 as i32, socktype.0 as i32, rp0.as_mut_ptr() as i32);
+        wasix_snapshot_preview1::sock_open(af.0 as i32, socktype.0 as i32, rp0.as_mut_ptr() as i64);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Fd)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3782,7 +3787,7 @@ pub unsafe fn sock_set_opt(fd: Fd, sockopt: SockOption, flag: Bool) -> Result<()
     let ret = wasix_snapshot_preview1::sock_set_opt(fd as i32, sockopt.0 as i32, flag.0 as i32);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3796,10 +3801,10 @@ pub unsafe fn sock_set_opt(fd: Fd, sockopt: SockOption, flag: Bool) -> Result<()
 pub unsafe fn sock_get_opt(fd: Fd, sockopt: SockOption) -> Result<Bool, Errno> {
     let mut rp0 = MaybeUninit::<Bool>::uninit();
     let ret =
-        wasix_snapshot_preview1::sock_get_opt(fd as i32, sockopt.0 as i32, rp0.as_mut_ptr() as i32);
+        wasix_snapshot_preview1::sock_get_opt(fd as i32, sockopt.0 as i32, rp0.as_mut_ptr() as i64);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Bool)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Bool)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3810,10 +3815,10 @@ pub unsafe fn sock_get_opt(fd: Fd, sockopt: SockOption) -> Result<Bool, Errno> {
 /// * `fd` - Socket descriptor
 /// * `linger` - Value to set the linger to
 pub unsafe fn sock_set_linger(fd: Fd, linger: OptionTimestamp) -> Result<(), Errno> {
-    let ret = wasix_snapshot_preview1::sock_set_linger(fd as i32, &linger as *const _ as i32);
+    let ret = wasix_snapshot_preview1::sock_set_linger(fd as i32, &linger as *const _ as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3824,12 +3829,12 @@ pub unsafe fn sock_set_linger(fd: Fd, linger: OptionTimestamp) -> Result<(), Err
 /// * `fd` - Socket descriptor
 pub unsafe fn sock_get_linger(fd: Fd) -> Result<OptionTimestamp, Errno> {
     let mut rp0 = MaybeUninit::<OptionTimestamp>::uninit();
-    let ret = wasix_snapshot_preview1::sock_get_linger(fd as i32, rp0.as_mut_ptr() as i32);
+    let ret = wasix_snapshot_preview1::sock_get_linger(fd as i32, rp0.as_mut_ptr() as i64);
     match ret {
         0 => Ok(core::ptr::read(
-            rp0.as_mut_ptr() as i32 as *const OptionTimestamp
+            rp0.as_mut_ptr() as i64 as *const OptionTimestamp
         )),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3844,7 +3849,7 @@ pub unsafe fn sock_set_timeout(fd: Fd, ty: TimeoutType, timeout: Timestamp) -> R
     let ret = wasix_snapshot_preview1::sock_set_timeout(fd as i32, ty as i32, timeout as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3857,10 +3862,10 @@ pub unsafe fn sock_set_timeout(fd: Fd, ty: TimeoutType, timeout: Timestamp) -> R
 pub unsafe fn sock_get_timeout(fd: Fd, ty: TimeoutType) -> Result<Timestamp, Errno> {
     let mut rp0 = MaybeUninit::<Timestamp>::uninit();
     let ret =
-        wasix_snapshot_preview1::sock_get_timeout(fd as i32, ty as i32, rp0.as_mut_ptr() as i32);
+        wasix_snapshot_preview1::sock_get_timeout(fd as i32, ty as i32, rp0.as_mut_ptr() as i64);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Timestamp)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Timestamp)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3870,11 +3875,11 @@ pub unsafe fn sock_get_timeout(fd: Fd, ty: TimeoutType) -> Result<Timestamp, Err
 ///
 /// * `fd` - Socket descriptor
 /// * `ttl` - Time to live
-pub unsafe fn sock_set_ttl(fd: Fd, ttl: Size) -> Result<(), Errno> {
+pub unsafe fn sock_set_ttl(fd: Fd, ttl: Count) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::sock_set_ttl(fd as i32, ttl as i32);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3883,12 +3888,12 @@ pub unsafe fn sock_set_ttl(fd: Fd, ttl: Size) -> Result<(), Errno> {
 /// ## Parameters
 ///
 /// * `fd` - Socket descriptor
-pub unsafe fn sock_get_ttl(fd: Fd) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasix_snapshot_preview1::sock_get_ttl(fd as i32, rp0.as_mut_ptr() as i32);
+pub unsafe fn sock_get_ttl(fd: Fd) -> Result<Count, Errno> {
+    let mut rp0 = MaybeUninit::<Count>::uninit();
+    let ret = wasix_snapshot_preview1::sock_get_ttl(fd as i32, rp0.as_mut_ptr() as i64);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Count)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3898,11 +3903,11 @@ pub unsafe fn sock_get_ttl(fd: Fd) -> Result<Size, Errno> {
 ///
 /// * `fd` - Socket descriptor
 /// * `ttl` - Time to live
-pub unsafe fn sock_set_multicast_ttl_v4(fd: Fd, ttl: Size) -> Result<(), Errno> {
+pub unsafe fn sock_set_multicast_ttl_v4(fd: Fd, ttl: Count) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::sock_set_multicast_ttl_v4(fd as i32, ttl as i32);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3911,13 +3916,13 @@ pub unsafe fn sock_set_multicast_ttl_v4(fd: Fd, ttl: Size) -> Result<(), Errno> 
 /// ## Parameters
 ///
 /// * `fd` - Socket descriptor
-pub unsafe fn sock_get_multicast_ttl_v4(fd: Fd) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
+pub unsafe fn sock_get_multicast_ttl_v4(fd: Fd) -> Result<Count, Errno> {
+    let mut rp0 = MaybeUninit::<Count>::uninit();
     let ret =
-        wasix_snapshot_preview1::sock_get_multicast_ttl_v4(fd as i32, rp0.as_mut_ptr() as i32);
+        wasix_snapshot_preview1::sock_get_multicast_ttl_v4(fd as i32, rp0.as_mut_ptr() as i64);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Count)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3935,12 +3940,12 @@ pub unsafe fn sock_join_multicast_v4(
 ) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::sock_join_multicast_v4(
         fd as i32,
-        &multiaddr as *const _ as i32,
-        &interface as *const _ as i32,
+        &multiaddr as *const _ as i64,
+        &interface as *const _ as i64,
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3958,12 +3963,12 @@ pub unsafe fn sock_leave_multicast_v4(
 ) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::sock_leave_multicast_v4(
         fd as i32,
-        &multiaddr as *const _ as i32,
-        &interface as *const _ as i32,
+        &multiaddr as *const _ as i64,
+        &interface as *const _ as i64,
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -3981,12 +3986,12 @@ pub unsafe fn sock_join_multicast_v6(
 ) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::sock_join_multicast_v6(
         fd as i32,
-        &multiaddr as *const _ as i32,
+        &multiaddr as *const _ as i64,
         interface as i32,
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -4004,12 +4009,12 @@ pub unsafe fn sock_leave_multicast_v6(
 ) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::sock_leave_multicast_v6(
         fd as i32,
-        &multiaddr as *const _ as i32,
+        &multiaddr as *const _ as i64,
         interface as i32,
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -4020,11 +4025,11 @@ pub unsafe fn sock_leave_multicast_v6(
 ///
 /// * `fd` - Socket descriptor
 /// * `size` - Buffer size
-pub unsafe fn sock_set_recv_buf_size(fd: Fd, size: Size) -> Result<(), Errno> {
-    let ret = wasix_snapshot_preview1::sock_set_recv_buf_size(fd as i32, size as i32);
+pub unsafe fn sock_set_recv_buf_size(fd: Fd, size: Filesize) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::sock_set_recv_buf_size(fd as i32, size as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -4034,12 +4039,12 @@ pub unsafe fn sock_set_recv_buf_size(fd: Fd, size: Size) -> Result<(), Errno> {
 /// ## Parameters
 ///
 /// * `fd` - Socket descriptor
-pub unsafe fn sock_get_recv_buf_size(fd: Fd) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasix_snapshot_preview1::sock_get_recv_buf_size(fd as i32, rp0.as_mut_ptr() as i32);
+pub unsafe fn sock_get_recv_buf_size(fd: Fd) -> Result<Filesize, Errno> {
+    let mut rp0 = MaybeUninit::<Filesize>::uninit();
+    let ret = wasix_snapshot_preview1::sock_get_recv_buf_size(fd as i32, rp0.as_mut_ptr() as i64);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -4050,11 +4055,11 @@ pub unsafe fn sock_get_recv_buf_size(fd: Fd) -> Result<Size, Errno> {
 ///
 /// * `fd` - Socket descriptor
 /// * `size` - Buffer size
-pub unsafe fn sock_set_send_buf_size(fd: Fd, size: Size) -> Result<(), Errno> {
-    let ret = wasix_snapshot_preview1::sock_set_send_buf_size(fd as i32, size as i32);
+pub unsafe fn sock_set_send_buf_size(fd: Fd, size: Filesize) -> Result<(), Errno> {
+    let ret = wasix_snapshot_preview1::sock_set_send_buf_size(fd as i32, size as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -4064,12 +4069,12 @@ pub unsafe fn sock_set_send_buf_size(fd: Fd, size: Size) -> Result<(), Errno> {
 /// ## Parameters
 ///
 /// * `fd` - Socket descriptor
-pub unsafe fn sock_get_send_buf_size(fd: Fd) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasix_snapshot_preview1::sock_get_send_buf_size(fd as i32, rp0.as_mut_ptr() as i32);
+pub unsafe fn sock_get_send_buf_size(fd: Fd) -> Result<Filesize, Errno> {
+    let mut rp0 = MaybeUninit::<Filesize>::uninit();
+    let ret = wasix_snapshot_preview1::sock_get_send_buf_size(fd as i32, rp0.as_mut_ptr() as i64);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -4081,10 +4086,10 @@ pub unsafe fn sock_get_send_buf_size(fd: Fd) -> Result<Size, Errno> {
 /// * `fd` - File descriptor of the socket to be bind
 /// * `addr` - Address to bind the socket to
 pub unsafe fn sock_bind(fd: Fd, addr: AddrPort) -> Result<(), Errno> {
-    let ret = wasix_snapshot_preview1::sock_bind(fd as i32, &addr as *const _ as i32);
+    let ret = wasix_snapshot_preview1::sock_bind(fd as i32, &addr as *const _ as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -4099,11 +4104,11 @@ pub unsafe fn sock_bind(fd: Fd, addr: AddrPort) -> Result<(), Errno> {
 ///
 /// * `fd` - File descriptor of the socket to be bind
 /// * `backlog` - Maximum size of the queue for pending connections
-pub unsafe fn sock_listen(fd: Fd, backlog: Size) -> Result<(), Errno> {
+pub unsafe fn sock_listen(fd: Fd, backlog: Count) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::sock_listen(fd as i32, backlog as i32);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -4124,15 +4129,15 @@ pub unsafe fn sock_accept(fd: Fd, flags: Fdflags) -> Result<(Fd, AddrPort), Errn
     let ret = wasix_snapshot_preview1::sock_accept(
         fd as i32,
         flags as i32,
-        rp0.as_mut_ptr() as i32,
-        rp1.as_mut_ptr() as i32,
+        rp0.as_mut_ptr() as i64,
+        rp1.as_mut_ptr() as i64,
     );
     match ret {
         0 => Ok((
-            core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd),
-            core::ptr::read(rp1.as_mut_ptr() as i32 as *const AddrPort),
+            core::ptr::read(rp0.as_mut_ptr() as i64 as *const Fd),
+            core::ptr::read(rp1.as_mut_ptr() as i64 as *const AddrPort),
         )),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -4148,10 +4153,10 @@ pub unsafe fn sock_accept(fd: Fd, flags: Fdflags) -> Result<(Fd, AddrPort), Errn
 /// * `fd` - Socket descriptor
 /// * `addr` - Address of the socket to connect to
 pub unsafe fn sock_connect(fd: Fd, addr: AddrPort) -> Result<(), Errno> {
-    let ret = wasix_snapshot_preview1::sock_connect(fd as i32, &addr as *const _ as i32);
+    let ret = wasix_snapshot_preview1::sock_connect(fd as i32, &addr as *const _ as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -4171,23 +4176,23 @@ pub unsafe fn sock_recv(
     fd: Fd,
     ri_data: IovecArray<'_>,
     ri_flags: Riflags,
-) -> Result<(Size, Roflags), Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
+) -> Result<(Filesize, Roflags), Errno> {
+    let mut rp0 = MaybeUninit::<Filesize>::uninit();
     let mut rp1 = MaybeUninit::<Roflags>::uninit();
     let ret = wasix_snapshot_preview1::sock_recv(
         fd as i32,
-        ri_data.as_ptr() as i32,
-        ri_data.len() as i32,
+        ri_data.as_ptr() as i64,
+        ri_data.len() as i64,
         ri_flags as i32,
-        rp0.as_mut_ptr() as i32,
-        rp1.as_mut_ptr() as i32,
+        rp0.as_mut_ptr() as i64,
+        rp1.as_mut_ptr() as i64,
     );
     match ret {
         0 => Ok((
-            core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size),
-            core::ptr::read(rp1.as_mut_ptr() as i32 as *const Roflags),
+            core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize),
+            core::ptr::read(rp1.as_mut_ptr() as i64 as *const Roflags),
         )),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -4207,26 +4212,26 @@ pub unsafe fn sock_recv_from(
     fd: Fd,
     ri_data: IovecArray<'_>,
     ri_flags: Riflags,
-) -> Result<(Size, Roflags, AddrPort), Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
+) -> Result<(Filesize, Roflags, AddrPort), Errno> {
+    let mut rp0 = MaybeUninit::<Filesize>::uninit();
     let mut rp1 = MaybeUninit::<Roflags>::uninit();
     let mut rp2 = MaybeUninit::<AddrPort>::uninit();
     let ret = wasix_snapshot_preview1::sock_recv_from(
         fd as i32,
-        ri_data.as_ptr() as i32,
-        ri_data.len() as i32,
+        ri_data.as_ptr() as i64,
+        ri_data.len() as i64,
         ri_flags as i32,
-        rp0.as_mut_ptr() as i32,
-        rp1.as_mut_ptr() as i32,
-        rp2.as_mut_ptr() as i32,
+        rp0.as_mut_ptr() as i64,
+        rp1.as_mut_ptr() as i64,
+        rp2.as_mut_ptr() as i64,
     );
     match ret {
         0 => Ok((
-            core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size),
-            core::ptr::read(rp1.as_mut_ptr() as i32 as *const Roflags),
-            core::ptr::read(rp2.as_mut_ptr() as i32 as *const AddrPort),
+            core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize),
+            core::ptr::read(rp1.as_mut_ptr() as i64 as *const Roflags),
+            core::ptr::read(rp2.as_mut_ptr() as i64 as *const AddrPort),
         )),
-        _ => Err(Errno(ret as u16)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -4246,18 +4251,18 @@ pub unsafe fn sock_send(
     fd: Fd,
     si_data: CiovecArray<'_>,
     si_flags: Siflags,
-) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
+) -> Result<Filesize, Errno> {
+    let mut rp0 = MaybeUninit::<Filesize>::uninit();
     let ret = wasix_snapshot_preview1::sock_send(
         fd as i32,
-        si_data.as_ptr() as i32,
-        si_data.len() as i32,
+        si_data.as_ptr() as i64,
+        si_data.len() as i64,
         si_flags as i32,
-        rp0.as_mut_ptr() as i32,
+        rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -4279,19 +4284,19 @@ pub unsafe fn sock_send_to(
     si_data: CiovecArray<'_>,
     si_flags: Siflags,
     addr: AddrPort,
-) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
+) -> Result<Filesize, Errno> {
+    let mut rp0 = MaybeUninit::<Filesize>::uninit();
     let ret = wasix_snapshot_preview1::sock_send_to(
         fd as i32,
-        si_data.as_ptr() as i32,
-        si_data.len() as i32,
+        si_data.as_ptr() as i64,
+        si_data.len() as i64,
         si_flags as i32,
-        &addr as *const _ as i32,
-        rp0.as_mut_ptr() as i32,
+        &addr as *const _ as i64,
+        rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -4312,19 +4317,24 @@ pub unsafe fn sock_send_to(
 /// ## Return
 ///
 /// The number of IP addresses returned during the DNS resolution.
-pub unsafe fn resolve(host: &str, port: u16, ips: *mut AddrIp, nips: Size) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
+pub unsafe fn resolve(
+    host: &str,
+    port: u16,
+    ips: *mut AddrIp,
+    nips: Count,
+) -> Result<Count, Errno> {
+    let mut rp0 = MaybeUninit::<Count>::uninit();
     let ret = wasix_snapshot_preview1::resolve(
-        host.as_ptr() as i32,
-        host.len() as i32,
+        host.as_ptr() as i64,
+        host.len() as i64,
         port as i32,
-        ips as i32,
+        ips as i64,
         nips as i32,
-        rp0.as_mut_ptr() as i32,
+        rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
-        _ => Err(Errno(ret as u16)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Count)),
+        _ => Err(Errno(ret as u32)),
     }
 }
 
@@ -4334,26 +4344,26 @@ pub mod wasix_snapshot_preview1 {
         /// Read command-line argument data.
         /// The size of the array should match that returned by `args_sizes_get`.
         /// Each argument is expected to be `\0` terminated.
-        pub fn args_get(arg0: i32, arg1: i32) -> i32;
+        pub fn args_get(arg0: i64, arg1: i64) -> i32;
         /// Return command-line argument data sizes.
-        pub fn args_sizes_get(arg0: i32, arg1: i32) -> i32;
+        pub fn args_sizes_get(arg0: i64, arg1: i64) -> i32;
         /// Read environment variable data.
         /// The sizes of the buffers should match that returned by `environ_sizes_get`.
         /// Key/value pairs are expected to be joined with `=`s, and terminated with `\0`s.
-        pub fn environ_get(arg0: i32, arg1: i32) -> i32;
+        pub fn environ_get(arg0: i64, arg1: i64) -> i32;
         /// Return environment variable data sizes.
-        pub fn environ_sizes_get(arg0: i32, arg1: i32) -> i32;
+        pub fn environ_sizes_get(arg0: i64, arg1: i64) -> i32;
         /// Return the resolution of a clock.
         /// Implementations are required to provide a non-zero value for supported clocks. For unsupported clocks,
         /// return `errno::inval`.
         /// Note: This is similar to `clock_getres` in POSIX.
-        pub fn clock_res_get(arg0: i32, arg1: i32) -> i32;
+        pub fn clock_res_get(arg0: i64, arg1: i64) -> i32;
         /// Return the time value of a clock.
         /// Note: This is similar to `clock_gettime` in POSIX.
-        pub fn clock_time_get(arg0: i32, arg1: i64, arg2: i32) -> i32;
+        pub fn clock_time_get(arg0: i64, arg1: i64, arg2: i64) -> i32;
         /// Provide file advisory information on a file descriptor.
         /// Note: This is similar to `posix_fadvise` in POSIX.
-        pub fn fd_advise(arg0: i32, arg1: i64, arg2: i64, arg3: i32) -> i32;
+        pub fn fd_advise(arg0: i32, arg1: i64, arg2: i64, arg3: i64) -> i32;
         /// Force the allocation of space in a file.
         /// Note: This is similar to `posix_fallocate` in POSIX.
         pub fn fd_allocate(arg0: i32, arg1: i64, arg2: i64) -> i32;
@@ -4365,7 +4375,7 @@ pub mod wasix_snapshot_preview1 {
         pub fn fd_datasync(arg0: i32) -> i32;
         /// Get the attributes of a file descriptor.
         /// Note: This returns similar flags to `fsync(fd, F_GETFL)` in POSIX, as well as additional fields.
-        pub fn fd_fdstat_get(arg0: i32, arg1: i32) -> i32;
+        pub fn fd_fdstat_get(arg0: i32, arg1: i64) -> i32;
         /// Adjust the flags associated with a file descriptor.
         /// Note: This is similar to `fcntl(fd, F_SETFL, flags)` in POSIX.
         pub fn fd_fdstat_set_flags(arg0: i32, arg1: i32) -> i32;
@@ -4373,7 +4383,7 @@ pub mod wasix_snapshot_preview1 {
         /// This can only be used to remove rights, and returns `errno::notcapable` if called in a way that would attempt to add rights
         pub fn fd_fdstat_set_rights(arg0: i32, arg1: i64, arg2: i64) -> i32;
         /// Return the attributes of an open file.
-        pub fn fd_filestat_get(arg0: i32, arg1: i32) -> i32;
+        pub fn fd_filestat_get(arg0: i32, arg1: i64) -> i32;
         /// Adjust the size of an open file. If this increases the file's size, the extra bytes are filled with zeros.
         /// Note: This is similar to `ftruncate` in POSIX.
         pub fn fd_filestat_set_size(arg0: i32, arg1: i64) -> i32;
@@ -4382,17 +4392,17 @@ pub mod wasix_snapshot_preview1 {
         pub fn fd_filestat_set_times(arg0: i32, arg1: i64, arg2: i64, arg3: i32) -> i32;
         /// Read from a file descriptor, without using and updating the file descriptor's offset.
         /// Note: This is similar to `preadv` in POSIX.
-        pub fn fd_pread(arg0: i32, arg1: i32, arg2: i32, arg3: i64, arg4: i32) -> i32;
+        pub fn fd_pread(arg0: i32, arg1: i64, arg2: i64, arg3: i64, arg4: i64) -> i32;
         /// Return a description of the given preopened file descriptor.
-        pub fn fd_prestat_get(arg0: i32, arg1: i32) -> i32;
+        pub fn fd_prestat_get(arg0: i32, arg1: i64) -> i32;
         /// Return a description of the given preopened file descriptor.
-        pub fn fd_prestat_dir_name(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        pub fn fd_prestat_dir_name(arg0: i32, arg1: i64, arg2: i64) -> i32;
         /// Write to a file descriptor, without using and updating the file descriptor's offset.
         /// Note: This is similar to `pwritev` in POSIX.
-        pub fn fd_pwrite(arg0: i32, arg1: i32, arg2: i32, arg3: i64, arg4: i32) -> i32;
+        pub fn fd_pwrite(arg0: i32, arg1: i64, arg2: i64, arg3: i64, arg4: i64) -> i32;
         /// Read from a file descriptor.
         /// Note: This is similar to `readv` in POSIX.
-        pub fn fd_read(arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> i32;
+        pub fn fd_read(arg0: i32, arg1: i64, arg2: i64, arg3: i64) -> i32;
         /// Read directory entries from a directory.
         /// When successful, the contents of the output buffer consist of a sequence of
         /// directory entries. Each directory entry consists of a `dirent` object,
@@ -4402,7 +4412,7 @@ pub mod wasix_snapshot_preview1 {
         /// truncating the last directory entry. This allows the caller to grow its
         /// read buffer size in case it's too small to fit a single large directory
         /// entry, or skip the oversized directory entry.
-        pub fn fd_readdir(arg0: i32, arg1: i32, arg2: i32, arg3: i64, arg4: i32) -> i32;
+        pub fn fd_readdir(arg0: i32, arg1: i64, arg2: i64, arg3: i64, arg4: i64) -> i32;
         /// Atomically replace a file descriptor by renumbering another file descriptor.
         /// Due to the strong focus on thread safety, this environment does not provide
         /// a mechanism to duplicate or renumber a file descriptor to an arbitrary
@@ -4413,36 +4423,36 @@ pub mod wasix_snapshot_preview1 {
         /// would disappear if `dup2()` were to be removed entirely.
         pub fn fd_renumber(arg0: i32, arg1: i32) -> i32;
         /// Atomically duplicate a file handle.
-        pub fn fd_dup(arg0: i32, arg1: i32) -> i32;
+        pub fn fd_dup(arg0: i32, arg1: i64) -> i32;
         /// Move the offset of a file descriptor.
         /// Note: This is similar to `lseek` in POSIX.
-        pub fn fd_seek(arg0: i32, arg1: i64, arg2: i32, arg3: i32) -> i32;
+        pub fn fd_seek(arg0: i32, arg1: i64, arg2: i64, arg3: i64) -> i32;
         /// Synchronize the data and metadata of a file to disk.
         /// Note: This is similar to `fsync` in POSIX.
         pub fn fd_sync(arg0: i32) -> i32;
         /// Return the current offset of a file descriptor.
         /// Note: This is similar to `lseek(fd, 0, SEEK_CUR)` in POSIX.
-        pub fn fd_tell(arg0: i32, arg1: i32) -> i32;
+        pub fn fd_tell(arg0: i32, arg1: i64) -> i32;
         /// Write to a file descriptor.
         /// Note: This is similar to `writev` in POSIX.
-        pub fn fd_write(arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> i32;
+        pub fn fd_write(arg0: i32, arg1: i64, arg2: i64, arg3: i64) -> i32;
         /// Opens a pipe with two file handles
         ///
         /// Pipes are bidirectional
-        pub fn pipe(arg0: i32, arg1: i32) -> i32;
+        pub fn pipe(arg0: i64, arg1: i64) -> i32;
         /// Create a directory.
         /// Note: This is similar to `mkdirat` in POSIX.
-        pub fn path_create_directory(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        pub fn path_create_directory(arg0: i32, arg1: i64, arg2: i64) -> i32;
         /// Return the attributes of a file or directory.
         /// Note: This is similar to `stat` in POSIX.
-        pub fn path_filestat_get(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32) -> i32;
+        pub fn path_filestat_get(arg0: i32, arg1: i32, arg2: i64, arg3: i64, arg4: i64) -> i32;
         /// Adjust the timestamps of a file or directory.
         /// Note: This is similar to `utimensat` in POSIX.
         pub fn path_filestat_set_times(
             arg0: i32,
             arg1: i32,
-            arg2: i32,
-            arg3: i32,
+            arg2: i64,
+            arg3: i64,
             arg4: i64,
             arg5: i64,
             arg6: i32,
@@ -4452,11 +4462,11 @@ pub mod wasix_snapshot_preview1 {
         pub fn path_link(
             arg0: i32,
             arg1: i32,
-            arg2: i32,
-            arg3: i32,
+            arg2: i64,
+            arg3: i64,
             arg4: i32,
-            arg5: i32,
-            arg6: i32,
+            arg5: i64,
+            arg6: i64,
         ) -> i32;
         /// Open a file or directory.
         /// The returned file descriptor is not guaranteed to be the lowest-numbered
@@ -4468,48 +4478,48 @@ pub mod wasix_snapshot_preview1 {
         pub fn path_open(
             arg0: i32,
             arg1: i32,
-            arg2: i32,
-            arg3: i32,
+            arg2: i64,
+            arg3: i64,
             arg4: i32,
             arg5: i64,
             arg6: i64,
             arg7: i32,
-            arg8: i32,
+            arg8: i64,
         ) -> i32;
         /// Read the contents of a symbolic link.
         /// Note: This is similar to `readlinkat` in POSIX.
         pub fn path_readlink(
             arg0: i32,
-            arg1: i32,
-            arg2: i32,
-            arg3: i32,
-            arg4: i32,
-            arg5: i32,
+            arg1: i64,
+            arg2: i64,
+            arg3: i64,
+            arg4: i64,
+            arg5: i64,
         ) -> i32;
         /// Remove a directory.
         /// Return `errno::notempty` if the directory is not empty.
         /// Note: This is similar to `unlinkat(fd, path, AT_REMOVEDIR)` in POSIX.
-        pub fn path_remove_directory(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        pub fn path_remove_directory(arg0: i32, arg1: i64, arg2: i64) -> i32;
         /// Rename a file or directory.
         /// Note: This is similar to `renameat` in POSIX.
-        pub fn path_rename(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32, arg5: i32)
+        pub fn path_rename(arg0: i32, arg1: i64, arg2: i64, arg3: i32, arg4: i64, arg5: i64)
             -> i32;
         /// Create a symbolic link.
         /// Note: This is similar to `symlinkat` in POSIX.
-        pub fn path_symlink(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32) -> i32;
+        pub fn path_symlink(arg0: i64, arg1: i64, arg2: i32, arg3: i64, arg4: i64) -> i32;
         /// Unlink a file.
         /// Return `errno::isdir` if the path refers to a directory.
         /// Note: This is similar to `unlinkat(fd, path, 0)` in POSIX.
-        pub fn path_unlink_file(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        pub fn path_unlink_file(arg0: i32, arg1: i64, arg2: i64) -> i32;
         /// Concurrently poll for the occurrence of a set of events.
-        pub fn poll_oneoff(arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> i32;
+        pub fn poll_oneoff(arg0: i64, arg1: i64, arg2: i32, arg3: i64) -> i32;
         /// Terminate the process normally. An exit code of 0 indicates successful
         /// termination of the program. The meanings of other values is dependent on
         /// the environment.
         pub fn proc_exit(arg0: i32) -> !;
         /// Send a signal to the process of the calling thread.
         /// Note: This is similar to `raise` in POSIX.
-        pub fn proc_raise(arg0: i32) -> i32;
+        pub fn proc_raise(arg0: i64) -> i32;
         /// Temporarily yield execution of the calling thread.
         /// Note: This is similar to `sched_yield` in POSIX.
         pub fn sched_yield() -> i32;
@@ -4519,35 +4529,35 @@ pub mod wasix_snapshot_preview1 {
         /// This function may execute slowly, so when large mounts of random data are
         /// required, it's advisable to use this function to seed a pseudo-random
         /// number generator, rather than to provide the random data directly.
-        pub fn random_get(arg0: i32, arg1: i32) -> i32;
+        pub fn random_get(arg0: i64, arg1: i64) -> i32;
         /// Retrieves the current state of the TTY
-        pub fn tty_get(arg0: i32) -> i32;
+        pub fn tty_get(arg0: i64) -> i32;
         /// Updates the properties of the rect
-        pub fn tty_set(arg0: i32) -> i32;
+        pub fn tty_set(arg0: i64) -> i32;
         /// Returns the current working directory
         /// If the path exceeds the size of the buffer then this function
         /// will fill the path_len with the needed size and return EOVERFLOW
-        pub fn getcwd(arg0: i32, arg1: i32) -> i32;
+        pub fn getcwd(arg0: i64, arg1: i64) -> i32;
         /// Sets the current working directory
-        pub fn chdir(arg0: i32, arg1: i32) -> i32;
+        pub fn chdir(arg0: i64, arg1: i64) -> i32;
         /// Creates a new thread by spawning that shares the same
         /// memory address space, file handles and main event loops.
         /// The function referenced by the fork call must be
         /// exported by the web assembly process.
-        pub fn thread_spawn(arg0: i32, arg1: i32, arg2: i64, arg3: i32, arg4: i32) -> i32;
+        pub fn thread_spawn(arg0: i64, arg1: i64, arg2: i64, arg3: i64, arg4: i64) -> i32;
         /// Sends the current thread to sleep for a period of time
         pub fn thread_sleep(arg0: i64) -> i32;
         /// Returns the index of the current thread
         /// (threads indices are sequencial from zero)
-        pub fn thread_id(arg0: i32) -> i32;
+        pub fn thread_id(arg0: i64) -> i32;
         /// Joins this thread with another thread, blocking this
         /// one until the other finishes
         pub fn thread_join(arg0: i32) -> i32;
         /// Returns the available parallelism which is normally the
         /// number of available cores that can run concurrently
-        pub fn thread_parallelism(arg0: i32) -> i32;
+        pub fn thread_parallelism(arg0: i64) -> i32;
         /// Returns the handle of the current process
-        pub fn getpid(arg0: i32) -> i32;
+        pub fn getpid(arg0: i64) -> i32;
         /// Terminates the current running thread, if this is the last thread then
         /// the process will also exit with the specified exit code. An exit code
         /// of 0 indicates successful termination of the thread. The meanings of
@@ -4556,160 +4566,160 @@ pub mod wasix_snapshot_preview1 {
         /// Spawns a new bus process for a particular web WebAssembly
         /// binary that is referenced by its process name.
         pub fn bus_spawn_local(
-            arg0: i32,
-            arg1: i32,
-            arg2: i32,
-            arg3: i32,
-            arg4: i32,
-            arg5: i32,
-            arg6: i32,
-            arg7: i32,
-            arg8: i32,
-            arg9: i32,
-            arg10: i32,
-            arg11: i32,
-            arg12: i32,
+            arg0: i64,
+            arg1: i64,
+            arg2: i64,
+            arg3: i64,
+            arg4: i64,
+            arg5: i64,
+            arg6: i64,
+            arg7: i64,
+            arg8: i64,
+            arg9: i64,
+            arg10: i64,
+            arg11: i64,
+            arg12: i64,
         ) -> i32;
         /// Spawns a new bus process for a particular web WebAssembly
         /// binary that is referenced by its process name on a remote instance
         pub fn bus_spawn_remote(
-            arg0: i32,
-            arg1: i32,
-            arg2: i32,
-            arg3: i32,
-            arg4: i32,
-            arg5: i32,
-            arg6: i32,
-            arg7: i32,
-            arg8: i32,
-            arg9: i32,
-            arg10: i32,
-            arg11: i32,
-            arg12: i32,
-            arg13: i32,
-            arg14: i32,
-            arg15: i32,
-            arg16: i32,
+            arg0: i64,
+            arg1: i64,
+            arg2: i64,
+            arg3: i64,
+            arg4: i64,
+            arg5: i64,
+            arg6: i64,
+            arg7: i64,
+            arg8: i64,
+            arg9: i64,
+            arg10: i64,
+            arg11: i64,
+            arg12: i64,
+            arg13: i64,
+            arg14: i64,
+            arg15: i64,
+            arg16: i64,
         ) -> i32;
         /// Closes a bus process and releases all associated resources
         pub fn bus_close(arg0: i32) -> i32;
         /// Invokes a call within a running bus process.
         pub fn bus_invoke(
             arg0: i32,
-            arg1: i32,
-            arg2: i32,
-            arg3: i32,
-            arg4: i32,
-            arg5: i32,
-            arg6: i32,
-            arg7: i32,
-            arg8: i32,
+            arg1: i64,
+            arg2: i64,
+            arg3: i64,
+            arg4: i64,
+            arg5: i64,
+            arg6: i64,
+            arg7: i64,
+            arg8: i64,
         ) -> i32;
         /// Causes a fault on a particular call that was made
         /// to this process from another process; where 'bid'
         /// is the callering process context.
-        pub fn bus_fault(arg0: i32, arg1: i32) -> i32;
+        pub fn bus_fault(arg0: i32, arg1: i64) -> i32;
         /// Closes a bus call based on its bus call handle
         pub fn bus_drop(arg0: i32) -> i32;
         /// Replies to a call that was made to this process
         /// from another process; where 'cid' is the call context.
         /// This will may also drop the handle and release any
         /// associated resources (if keepalive is not set)
-        pub fn bus_reply(arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> i32;
+        pub fn bus_reply(arg0: i32, arg1: i64, arg2: i64, arg3: i64) -> i32;
         /// Invokes a callback within the calling process against
         /// a particular bus call represented by 'cid'.
         pub fn bus_callback(
             arg0: i32,
-            arg1: i32,
-            arg2: i32,
-            arg3: i32,
-            arg4: i32,
-            arg5: i32,
+            arg1: i64,
+            arg2: i64,
+            arg3: i64,
+            arg4: i64,
+            arg5: i64,
         ) -> i32;
         /// Tells the operating system that this process is
         /// now listening for bus calls on a particular topic
-        pub fn bus_listen(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        pub fn bus_listen(arg0: i64, arg1: i64, arg2: i64) -> i32;
         /// Polls for any outstanding events from a particular
         /// bus process by its handle
-        pub fn bus_poll(arg0: i32, arg1: i64, arg2: i32, arg3: i32, arg4: i32) -> i32;
+        pub fn bus_poll(arg0: i64, arg1: i64, arg2: i64, arg3: i32, arg4: i64) -> i32;
         /// Receives the next event data from the bus
         pub fn bus_poll_data(
-            arg0: i32,
+            arg0: i64,
             arg1: i64,
-            arg2: i32,
-            arg3: i32,
-            arg4: i32,
-            arg5: i32,
-            arg6: i32,
+            arg2: i64,
+            arg3: i64,
+            arg4: i64,
+            arg5: i64,
+            arg6: i64,
         ) -> i32;
         /// Connects to a websocket at a particular network URL
-        pub fn ws_connect(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        pub fn ws_connect(arg0: i64, arg1: i64, arg2: i64) -> i32;
         /// Makes a HTTP request to a remote web resource and
         /// returns a socket handles that are used to send and receive data
         pub fn http_request(
-            arg0: i32,
-            arg1: i32,
-            arg2: i32,
-            arg3: i32,
-            arg4: i32,
-            arg5: i32,
-            arg6: i32,
-            arg7: i32,
+            arg0: i64,
+            arg1: i64,
+            arg2: i64,
+            arg3: i64,
+            arg4: i64,
+            arg5: i64,
+            arg6: i64,
+            arg7: i64,
         ) -> i32;
         /// Retrieves the status of a HTTP request
-        pub fn http_status(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32, arg5: i32)
+        pub fn http_status(arg0: i32, arg1: i64, arg2: i64, arg3: i64, arg4: i64, arg5: i64)
             -> i32;
         /// Securely connects to a particular remote network
-        pub fn port_bridge(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32) -> i32;
+        pub fn port_bridge(arg0: i64, arg1: i64, arg2: i64, arg3: i64, arg4: i32) -> i32;
         /// Disconnects from a remote network
         pub fn port_unbridge() -> i32;
         /// Acquires a set of IP addresses using DHCP
         pub fn port_dhcp_acquire() -> i32;
         /// Adds another static IP address to the local port
-        pub fn port_ip_add(arg0: i32) -> i32;
+        pub fn port_ip_add(arg0: i64) -> i32;
         /// Removes an IP address from the local port
-        pub fn port_ip_remove(arg0: i32) -> i32;
+        pub fn port_ip_remove(arg0: i64) -> i32;
         /// Clears all the IP addresses on the local port
         pub fn port_ip_clear() -> i32;
         /// Returns the MAC address of the local port
-        pub fn port_mac(arg0: i32) -> i32;
+        pub fn port_mac(arg0: i64) -> i32;
         /// Returns a list of all the IP addresses owned by the local port
         /// This function fills the output buffer as much as possible.
         /// If the buffer is not big enough then the nips address will be
         /// filled with the buffer size needed and the EOVERFLOW will be returned
-        pub fn port_ip_list(arg0: i32, arg1: i32) -> i32;
+        pub fn port_ip_list(arg0: i64, arg1: i64) -> i32;
         /// Adds a default gateway to the port
-        pub fn port_gateway_set(arg0: i32) -> i32;
+        pub fn port_gateway_set(arg0: i64) -> i32;
         /// Adds a new route to the local port
-        pub fn port_route_add(arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> i32;
+        pub fn port_route_add(arg0: i64, arg1: i64, arg2: i64, arg3: i64) -> i32;
         /// Removes an existing route from the local port
-        pub fn port_route_remove(arg0: i32) -> i32;
+        pub fn port_route_remove(arg0: i64) -> i32;
         /// Clears all the routes in the local port
         pub fn port_route_clear() -> i32;
         /// Returns a list of all the routes owned by the local port
         /// This function fills the output buffer as much as possible.
         /// If the buffer is too small this will return EOVERFLOW and
         /// fill nroutes with the size of the buffer needed.
-        pub fn port_route_list(arg0: i32, arg1: i32) -> i32;
+        pub fn port_route_list(arg0: i64, arg1: i64) -> i32;
         /// Shut down socket send and receive channels.
         /// Note: This is similar to `shutdown` in POSIX.
         pub fn sock_shutdown(arg0: i32, arg1: i32) -> i32;
         /// Returns the current status of a socket
-        pub fn sock_status(arg0: i32, arg1: i32) -> i32;
+        pub fn sock_status(arg0: i32, arg1: i64) -> i32;
         /// Returns the local address to which the socket is bound.
         ///
         /// Note: This is similar to `getsockname` in POSIX
         ///
         /// When successful, the contents of the output buffer consist of an IP address,
         /// either IP4 or IP6.
-        pub fn sock_addr_local(arg0: i32, arg1: i32) -> i32;
+        pub fn sock_addr_local(arg0: i32, arg1: i64) -> i32;
         /// Returns the remote address to which the socket is connected to.
         ///
         /// Note: This is similar to `getpeername` in POSIX
         ///
         /// When successful, the contents of the output buffer consist of an IP address,
         /// either IP4 or IP6.
-        pub fn sock_addr_peer(arg0: i32, arg1: i32) -> i32;
+        pub fn sock_addr_peer(arg0: i32, arg1: i64) -> i32;
         /// Create an endpoint for communication.
         ///
         /// creates an endpoint for communication and returns a file descriptor
@@ -4718,29 +4728,29 @@ pub mod wasix_snapshot_preview1 {
         /// for the process.
         ///
         /// Note: This is similar to `socket` in POSIX using PF_INET
-        pub fn sock_open(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        pub fn sock_open(arg0: i64, arg1: i64, arg2: i64) -> i32;
         /// Sets a particular socket setting
         /// Note: This is similar to `setsockopt` in POSIX for SO_REUSEADDR
-        pub fn sock_set_opt(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        pub fn sock_set_opt(arg0: i32, arg1: i64, arg2: i64) -> i32;
         /// Retrieve status of particular socket seting
         /// Note: This is similar to `getsockopt` in POSIX for SO_REUSEADDR
-        pub fn sock_get_opt(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        pub fn sock_get_opt(arg0: i32, arg1: i64, arg2: i64) -> i32;
         /// Sets how long the socket will linger
-        pub fn sock_set_linger(arg0: i32, arg1: i32) -> i32;
+        pub fn sock_set_linger(arg0: i32, arg1: i64) -> i32;
         /// Retrieve how long the socket will linger for
-        pub fn sock_get_linger(arg0: i32, arg1: i32) -> i32;
+        pub fn sock_get_linger(arg0: i32, arg1: i64) -> i32;
         /// Sets one of the timeouts on the socket
         pub fn sock_set_timeout(arg0: i32, arg1: i32, arg2: i64) -> i32;
         /// Retrieve one of the timeouts on the socket
-        pub fn sock_get_timeout(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        pub fn sock_get_timeout(arg0: i32, arg1: i32, arg2: i64) -> i32;
         /// Set TTL for this socket
         pub fn sock_set_ttl(arg0: i32, arg1: i32) -> i32;
         /// Retrieve the TTL for this socket
-        pub fn sock_get_ttl(arg0: i32, arg1: i32) -> i32;
+        pub fn sock_get_ttl(arg0: i32, arg1: i64) -> i32;
         /// Set TTL for IPv4 multicast for this socket
         pub fn sock_set_multicast_ttl_v4(arg0: i32, arg1: i32) -> i32;
         /// Retrieve the TTL for IPv4 multicast for this socket
-        pub fn sock_get_multicast_ttl_v4(arg0: i32, arg1: i32) -> i32;
+        pub fn sock_get_multicast_ttl_v4(arg0: i32, arg1: i64) -> i32;
         /// Joins a particular multicast IPv4 group
         pub fn sock_join_multicast_v4(arg0: i32, arg1: i32, arg2: i32) -> i32;
         /// Leaves a particular multicast IPv4 group
@@ -4751,19 +4761,19 @@ pub mod wasix_snapshot_preview1 {
         pub fn sock_leave_multicast_v6(arg0: i32, arg1: i32, arg2: i32) -> i32;
         /// Set size of receive buffer
         /// Note: This is similar to `setsockopt` in POSIX for SO_RCVBUF
-        pub fn sock_set_recv_buf_size(arg0: i32, arg1: i32) -> i32;
+        pub fn sock_set_recv_buf_size(arg0: i32, arg1: i64) -> i32;
         /// Retrieve the size of the receive buffer
         /// Note: This is similar to `getsockopt` in POSIX for SO_RCVBUF
-        pub fn sock_get_recv_buf_size(arg0: i32, arg1: i32) -> i32;
+        pub fn sock_get_recv_buf_size(arg0: i32, arg1: i64) -> i32;
         /// Set size of send buffer
         /// Note: This is similar to `setsockopt` in POSIX for SO_SNDBUF
-        pub fn sock_set_send_buf_size(arg0: i32, arg1: i32) -> i32;
+        pub fn sock_set_send_buf_size(arg0: i32, arg1: i64) -> i32;
         /// Retrieve the size of the send buffer
         /// Note: This is similar to `getsockopt` in POSIX for SO_SNDBUF
-        pub fn sock_get_send_buf_size(arg0: i32, arg1: i32) -> i32;
+        pub fn sock_get_send_buf_size(arg0: i32, arg1: i64) -> i32;
         /// Bind a socket
         /// Note: This is similar to `bind` in POSIX using PF_INET
-        pub fn sock_bind(arg0: i32, arg1: i32) -> i32;
+        pub fn sock_bind(arg0: i32, arg1: i64) -> i32;
         /// Listen for connections on a socket
         ///
         /// Polling the socket handle will wait until a connection
@@ -4773,44 +4783,44 @@ pub mod wasix_snapshot_preview1 {
         pub fn sock_listen(arg0: i32, arg1: i32) -> i32;
         /// Accept a new incoming connection.
         /// Note: This is similar to `accept` in POSIX.
-        pub fn sock_accept(arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> i32;
+        pub fn sock_accept(arg0: i32, arg1: i32, arg2: i64, arg3: i64) -> i32;
         /// Initiate a connection on a socket to the specified address
         ///
         /// Polling the socket handle will wait for data to arrive or for
         /// the socket status to change which can be queried via 'sock_status'
         ///
         /// Note: This is similar to `connect` in POSIX
-        pub fn sock_connect(arg0: i32, arg1: i32) -> i32;
+        pub fn sock_connect(arg0: i32, arg1: i64) -> i32;
         /// Receive a message from a socket.
         /// Note: This is similar to `recv` in POSIX, though it also supports reading
         /// the data into multiple buffers in the manner of `readv`.
-        pub fn sock_recv(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32, arg5: i32) -> i32;
+        pub fn sock_recv(arg0: i32, arg1: i64, arg2: i64, arg3: i32, arg4: i64, arg5: i64) -> i32;
         /// Receive a message and its peer address from a socket.
         /// Note: This is similar to `recvfrom` in POSIX, though it also supports reading
         /// the data into multiple buffers in the manner of `readv`.
         pub fn sock_recv_from(
             arg0: i32,
-            arg1: i32,
-            arg2: i32,
+            arg1: i64,
+            arg2: i64,
             arg3: i32,
-            arg4: i32,
-            arg5: i32,
-            arg6: i32,
+            arg4: i64,
+            arg5: i64,
+            arg6: i64,
         ) -> i32;
         /// Send a message on a socket.
         /// Note: This is similar to `send` in POSIX, though it also supports writing
         /// the data from multiple buffers in the manner of `writev`.
-        pub fn sock_send(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32) -> i32;
+        pub fn sock_send(arg0: i32, arg1: i64, arg2: i64, arg3: i32, arg4: i64) -> i32;
         /// Send a message on a socket to a specific address.
         /// Note: This is similar to `sendto` in POSIX, though it also supports writing
         /// the data from multiple buffers in the manner of `writev`.
         pub fn sock_send_to(
             arg0: i32,
-            arg1: i32,
-            arg2: i32,
+            arg1: i64,
+            arg2: i64,
             arg3: i32,
-            arg4: i32,
-            arg5: i32,
+            arg4: i64,
+            arg5: i64,
         ) -> i32;
         /// Resolves a hostname and a port to one or more IP addresses.
         ///
@@ -4819,6 +4829,6 @@ pub mod wasix_snapshot_preview1 {
         /// When successful, the contents of the output buffer consist of a sequence of
         /// IPv4 and/or IPv6 addresses. Each address entry consists of a addr_t object.
         /// This function fills the output buffer as much as possible.
-        pub fn resolve(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32, arg5: i32) -> i32;
+        pub fn resolve(arg0: i64, arg1: i64, arg2: i32, arg3: i64, arg4: i32, arg5: i64) -> i32;
     }
 }
