@@ -2311,8 +2311,8 @@ pub unsafe fn fd_filestat_set_times(
 /// ## Return
 ///
 /// The number of bytes read.
-pub unsafe fn fd_pread(fd: Fd, iovs: IovecArray<'_>, offset: Filesize) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
+pub unsafe fn fd_pread(fd: Fd, iovs: IovecArray<'_>, offset: Filesize) -> Result<Filesize, Errno> {
+    let mut rp0 = MaybeUninit::<Filesize>::uninit();
     let ret = wasix_snapshot_preview1::fd_pread(
         fd as i32,
         iovs.as_ptr() as i64,
@@ -2321,7 +2321,7 @@ pub unsafe fn fd_pread(fd: Fd, iovs: IovecArray<'_>, offset: Filesize) -> Result
         rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize)),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -2368,8 +2368,12 @@ pub unsafe fn fd_prestat_dir_name(
 /// ## Return
 ///
 /// The number of bytes written.
-pub unsafe fn fd_pwrite(fd: Fd, iovs: CiovecArray<'_>, offset: Filesize) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
+pub unsafe fn fd_pwrite(
+    fd: Fd,
+    iovs: CiovecArray<'_>,
+    offset: Filesize,
+) -> Result<Filesize, Errno> {
+    let mut rp0 = MaybeUninit::<Filesize>::uninit();
     let ret = wasix_snapshot_preview1::fd_pwrite(
         fd as i32,
         iovs.as_ptr() as i64,
@@ -2378,7 +2382,7 @@ pub unsafe fn fd_pwrite(fd: Fd, iovs: CiovecArray<'_>, offset: Filesize) -> Resu
         rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize)),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -2430,8 +2434,8 @@ pub unsafe fn fd_readdir(
     buf: *mut u8,
     buf_len: Pointersize,
     cookie: Dircookie,
-) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
+) -> Result<Filesize, Errno> {
+    let mut rp0 = MaybeUninit::<Filesize>::uninit();
     let ret = wasix_snapshot_preview1::fd_readdir(
         fd as i32,
         buf as i64,
@@ -2440,7 +2444,7 @@ pub unsafe fn fd_readdir(
         rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize)),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -2531,8 +2535,8 @@ pub unsafe fn fd_tell(fd: Fd) -> Result<Filesize, Errno> {
 /// ## Parameters
 ///
 /// * `iovs` - List of scatter/gather vectors from which to retrieve data.
-pub unsafe fn fd_write(fd: Fd, iovs: CiovecArray<'_>) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
+pub unsafe fn fd_write(fd: Fd, iovs: CiovecArray<'_>) -> Result<Filesize, Errno> {
+    let mut rp0 = MaybeUninit::<Filesize>::uninit();
     let ret = wasix_snapshot_preview1::fd_write(
         fd as i32,
         iovs.as_ptr() as i64,
@@ -2540,7 +2544,7 @@ pub unsafe fn fd_write(fd: Fd, iovs: CiovecArray<'_>) -> Result<Size, Errno> {
         rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize)),
         _ => Err(Errno(ret as u16)),
     }
 }
