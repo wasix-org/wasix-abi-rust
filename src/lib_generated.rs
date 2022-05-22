@@ -2393,8 +2393,8 @@ pub unsafe fn fd_pwrite(fd: Fd, iovs: CiovecArray<'_>, offset: Filesize) -> Resu
 /// ## Return
 ///
 /// The number of bytes read.
-pub unsafe fn fd_read(fd: Fd, iovs: IovecArray<'_>) -> Result<Filesize, Errno> {
-    let mut rp0 = MaybeUninit::<Filesize>::uninit();
+pub unsafe fn fd_read(fd: Fd, iovs: IovecArray<'_>) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
     let ret = wasix_snapshot_preview1::fd_read(
         fd as i32,
         iovs.as_ptr() as i64,
@@ -2402,7 +2402,7 @@ pub unsafe fn fd_read(fd: Fd, iovs: IovecArray<'_>) -> Result<Filesize, Errno> {
         rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -2430,8 +2430,8 @@ pub unsafe fn fd_readdir(
     buf: *mut u8,
     buf_len: Pointersize,
     cookie: Dircookie,
-) -> Result<Filesize, Errno> {
-    let mut rp0 = MaybeUninit::<Filesize>::uninit();
+) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
     let ret = wasix_snapshot_preview1::fd_readdir(
         fd as i32,
         buf as i64,
@@ -2440,7 +2440,7 @@ pub unsafe fn fd_readdir(
         rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
         _ => Err(Errno(ret as u16)),
     }
 }
