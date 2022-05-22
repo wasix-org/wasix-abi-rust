@@ -2741,8 +2741,8 @@ pub unsafe fn path_readlink(
     path: &str,
     buf: *mut u8,
     buf_len: Pointersize,
-) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
+) -> Result<Filesize, Errno> {
+    let mut rp0 = MaybeUninit::<Filesize>::uninit();
     let ret = wasix_snapshot_preview1::path_readlink(
         fd as i32,
         path.as_ptr() as i64,
@@ -2752,7 +2752,7 @@ pub unsafe fn path_readlink(
         rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize)),
         _ => Err(Errno(ret as u16)),
     }
 }
