@@ -67,7 +67,7 @@ impl fmt::Debug for Clockid {
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub struct Errno(u32);
+pub struct Errno(u16);
 /// No error occurred. System call completed successfully.
 pub const ERRNO_SUCCESS: Errno = Errno(0);
 /// Argument list too long.
@@ -223,7 +223,7 @@ pub const ERRNO_XDEV: Errno = Errno(75);
 /// Extension: Capabilities insufficient.
 pub const ERRNO_NOTCAPABLE: Errno = Errno(76);
 impl Errno {
-    pub const fn raw(&self) -> u32 {
+    pub const fn raw(&self) -> u16 {
         self.0
     }
 
@@ -2036,7 +2036,7 @@ pub unsafe fn args_get(argv: *mut *mut u8, argv_buf: *mut u8) -> Result<(), Errn
     let ret = wasix_snapshot_preview1::args_get(argv as i64, argv_buf as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2056,7 +2056,7 @@ pub unsafe fn args_sizes_get() -> Result<(Count, Pointersize), Errno> {
             core::ptr::read(rp0.as_mut_ptr() as i64 as *const Count),
             core::ptr::read(rp1.as_mut_ptr() as i64 as *const Pointersize),
         )),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2067,7 +2067,7 @@ pub unsafe fn environ_get(environ: *mut *mut u8, environ_buf: *mut u8) -> Result
     let ret = wasix_snapshot_preview1::environ_get(environ as i64, environ_buf as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2089,7 +2089,7 @@ pub unsafe fn environ_sizes_get() -> Result<(Count, Pointersize), Errno> {
             core::ptr::read(rp0.as_mut_ptr() as i64 as *const Count),
             core::ptr::read(rp1.as_mut_ptr() as i64 as *const Pointersize),
         )),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2110,7 +2110,7 @@ pub unsafe fn clock_res_get(id: Clockid) -> Result<Timestamp, Errno> {
     let ret = wasix_snapshot_preview1::clock_res_get(id.0 as i32, rp0.as_mut_ptr() as i64);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Timestamp)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2134,7 +2134,7 @@ pub unsafe fn clock_time_get(id: Clockid, precision: Timestamp) -> Result<Timest
     );
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Timestamp)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2156,7 +2156,7 @@ pub unsafe fn fd_advise(
         wasix_snapshot_preview1::fd_advise(fd as i32, offset as i64, len as i64, advice.0 as i32);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2171,7 +2171,7 @@ pub unsafe fn fd_allocate(fd: Fd, offset: Filesize, len: Filesize) -> Result<(),
     let ret = wasix_snapshot_preview1::fd_allocate(fd as i32, offset as i64, len as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2181,7 +2181,7 @@ pub unsafe fn fd_close(fd: Fd) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::fd_close(fd as i32);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2191,7 +2191,7 @@ pub unsafe fn fd_datasync(fd: Fd) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::fd_datasync(fd as i32);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2206,7 +2206,7 @@ pub unsafe fn fd_fdstat_get(fd: Fd) -> Result<Fdstat, Errno> {
     let ret = wasix_snapshot_preview1::fd_fdstat_get(fd as i32, rp0.as_mut_ptr() as i64);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Fdstat)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2220,7 +2220,7 @@ pub unsafe fn fd_fdstat_set_flags(fd: Fd, flags: Fdflags) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::fd_fdstat_set_flags(fd as i32, flags as i32);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2242,7 +2242,7 @@ pub unsafe fn fd_fdstat_set_rights(
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2256,7 +2256,7 @@ pub unsafe fn fd_filestat_get(fd: Fd) -> Result<Filestat, Errno> {
     let ret = wasix_snapshot_preview1::fd_filestat_get(fd as i32, rp0.as_mut_ptr() as i64);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filestat)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2270,7 +2270,7 @@ pub unsafe fn fd_filestat_set_size(fd: Fd, size: Filesize) -> Result<(), Errno> 
     let ret = wasix_snapshot_preview1::fd_filestat_set_size(fd as i32, size as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2296,7 +2296,7 @@ pub unsafe fn fd_filestat_set_times(
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2322,7 +2322,7 @@ pub unsafe fn fd_pread(fd: Fd, iovs: IovecArray<'_>, offset: Filesize) -> Result
     );
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2336,7 +2336,7 @@ pub unsafe fn fd_prestat_get(fd: Fd) -> Result<Prestat, Errno> {
     let ret = wasix_snapshot_preview1::fd_prestat_get(fd as i32, rp0.as_mut_ptr() as i64);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Prestat)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2353,7 +2353,7 @@ pub unsafe fn fd_prestat_dir_name(
     let ret = wasix_snapshot_preview1::fd_prestat_dir_name(fd as i32, path as i64, path_len as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2383,7 +2383,7 @@ pub unsafe fn fd_pwrite(
     );
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2407,7 +2407,7 @@ pub unsafe fn fd_read(fd: Fd, iovs: IovecArray<'_>) -> Result<Filesize, Errno> {
     );
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2447,7 +2447,7 @@ pub unsafe fn fd_readdir(
         0 => Ok(core::ptr::read(
             rp0.as_mut_ptr() as i64 as *const Pointersize
         )),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2467,7 +2467,7 @@ pub unsafe fn fd_renumber(fd: Fd, to: Fd) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::fd_renumber(fd as i32, to as i32);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2477,7 +2477,7 @@ pub unsafe fn fd_dup(fd: Fd) -> Result<Fd, Errno> {
     let ret = wasix_snapshot_preview1::fd_dup(fd as i32, rp0.as_mut_ptr() as i64);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Fd)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2502,7 +2502,7 @@ pub unsafe fn fd_seek(fd: Fd, offset: Filedelta, whence: Whence) -> Result<Files
     );
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2512,7 +2512,7 @@ pub unsafe fn fd_sync(fd: Fd) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::fd_sync(fd as i32);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2527,7 +2527,7 @@ pub unsafe fn fd_tell(fd: Fd) -> Result<Filesize, Errno> {
     let ret = wasix_snapshot_preview1::fd_tell(fd as i32, rp0.as_mut_ptr() as i64);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2547,7 +2547,7 @@ pub unsafe fn fd_write(fd: Fd, iovs: CiovecArray<'_>) -> Result<Filesize, Errno>
     );
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2563,7 +2563,7 @@ pub unsafe fn pipe() -> Result<(Fd, Fd), Errno> {
             core::ptr::read(rp0.as_mut_ptr() as i64 as *const Fd),
             core::ptr::read(rp1.as_mut_ptr() as i64 as *const Fd),
         )),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2581,7 +2581,7 @@ pub unsafe fn path_create_directory(fd: Fd, path: &str) -> Result<(), Errno> {
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2607,7 +2607,7 @@ pub unsafe fn path_filestat_get(fd: Fd, flags: Lookupflags, path: &str) -> Resul
     );
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filestat)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2640,7 +2640,7 @@ pub unsafe fn path_filestat_set_times(
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2671,7 +2671,7 @@ pub unsafe fn path_link(
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2723,7 +2723,7 @@ pub unsafe fn path_open(
     );
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Fd)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2757,7 +2757,7 @@ pub unsafe fn path_readlink(
         0 => Ok(core::ptr::read(
             rp0.as_mut_ptr() as i64 as *const Pointersize
         )),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2776,7 +2776,7 @@ pub unsafe fn path_remove_directory(fd: Fd, path: &str) -> Result<(), Errno> {
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2799,7 +2799,7 @@ pub unsafe fn path_rename(fd: Fd, old_path: &str, new_fd: Fd, new_path: &str) ->
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2820,7 +2820,7 @@ pub unsafe fn path_symlink(old_path: &str, fd: Fd, new_path: &str) -> Result<(),
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2839,7 +2839,7 @@ pub unsafe fn path_unlink_file(fd: Fd, path: &str) -> Result<(), Errno> {
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2868,7 +2868,7 @@ pub unsafe fn poll_oneoff(
     );
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Count)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2893,7 +2893,7 @@ pub unsafe fn proc_raise(sig: Signal) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::proc_raise(sig.0 as i32);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2903,7 +2903,7 @@ pub unsafe fn sched_yield() -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::sched_yield();
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2921,7 +2921,7 @@ pub unsafe fn random_get(buf: *mut u8, buf_len: Pointersize) -> Result<(), Errno
     let ret = wasix_snapshot_preview1::random_get(buf as i64, buf_len as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2930,7 +2930,7 @@ pub unsafe fn tty_get(state: *mut Tty) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::tty_get(state as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2939,7 +2939,7 @@ pub unsafe fn tty_set(state: *mut Tty) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::tty_set(state as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2954,7 +2954,7 @@ pub unsafe fn getcwd(path: *mut u8, path_len: *mut Pointersize) -> Result<(), Er
     let ret = wasix_snapshot_preview1::getcwd(path as i64, path_len as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2967,7 +2967,7 @@ pub unsafe fn chdir(path: &str) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::chdir(path.as_ptr() as i64, path.len() as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -2999,7 +2999,7 @@ pub unsafe fn thread_spawn(name: &str, user_data: u64, reactor: Bool) -> Result<
     );
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Tid)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3012,7 +3012,7 @@ pub unsafe fn thread_sleep(duration: Timestamp) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::thread_sleep(duration as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3023,7 +3023,7 @@ pub unsafe fn thread_id() -> Result<Tid, Errno> {
     let ret = wasix_snapshot_preview1::thread_id(rp0.as_mut_ptr() as i64);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Tid)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3037,7 +3037,7 @@ pub unsafe fn thread_join(tid: Tid) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::thread_join(tid as i32);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3048,7 +3048,7 @@ pub unsafe fn thread_parallelism() -> Result<Count, Errno> {
     let ret = wasix_snapshot_preview1::thread_parallelism(rp0.as_mut_ptr() as i64);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Count)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3058,7 +3058,7 @@ pub unsafe fn getpid() -> Result<Pid, Errno> {
     let ret = wasix_snapshot_preview1::getpid(rp0.as_mut_ptr() as i64);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Pid)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3433,7 +3433,7 @@ pub unsafe fn ws_connect(url: &str) -> Result<Fd, Errno> {
     );
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Fd)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3473,7 +3473,7 @@ pub unsafe fn http_request(
         0 => Ok(core::ptr::read(
             rp0.as_mut_ptr() as i64 as *const HttpHandles
         )),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3506,7 +3506,7 @@ pub unsafe fn http_status(
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3531,7 +3531,7 @@ pub unsafe fn port_bridge(
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3540,7 +3540,7 @@ pub unsafe fn port_unbridge() -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::port_unbridge();
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3549,7 +3549,7 @@ pub unsafe fn port_dhcp_acquire() -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::port_dhcp_acquire();
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3562,7 +3562,7 @@ pub unsafe fn port_ip_add(ip: AddrCidr) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::port_ip_add(&ip as *const _ as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3575,7 +3575,7 @@ pub unsafe fn port_ip_remove(ip: AddrIp) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::port_ip_remove(&ip as *const _ as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3584,7 +3584,7 @@ pub unsafe fn port_ip_clear() -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::port_ip_clear();
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3596,7 +3596,7 @@ pub unsafe fn port_mac() -> Result<HardwareAddress, Errno> {
         0 => Ok(core::ptr::read(
             rp0.as_mut_ptr() as i64 as *const HardwareAddress
         )),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3616,7 +3616,7 @@ pub unsafe fn port_ip_list(ips: *mut AddrCidr, nips: *mut Count) -> Result<(), E
     let ret = wasix_snapshot_preview1::port_ip_list(ips as i64, nips as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3629,7 +3629,7 @@ pub unsafe fn port_gateway_set(ip: AddrIp) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::port_gateway_set(&ip as *const _ as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3648,7 +3648,7 @@ pub unsafe fn port_route_add(
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3657,7 +3657,7 @@ pub unsafe fn port_route_remove(cidr: AddrIp) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::port_route_remove(&cidr as *const _ as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3666,7 +3666,7 @@ pub unsafe fn port_route_clear() -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::port_route_clear();
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3682,7 +3682,7 @@ pub unsafe fn port_route_list(routes: *mut Route, nroutes: *mut Count) -> Result
     let ret = wasix_snapshot_preview1::port_route_list(routes as i64, nroutes as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3696,7 +3696,7 @@ pub unsafe fn sock_shutdown(fd: Fd, how: Sdflags) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::sock_shutdown(fd as i32, how as i32);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3706,7 +3706,7 @@ pub unsafe fn sock_status(fd: Fd) -> Result<SockStatus, Errno> {
     let ret = wasix_snapshot_preview1::sock_status(fd as i32, rp0.as_mut_ptr() as i64);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const SockStatus)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3725,7 +3725,7 @@ pub unsafe fn sock_addr_local(fd: Fd) -> Result<AddrPort, Errno> {
     let ret = wasix_snapshot_preview1::sock_addr_local(fd as i32, rp0.as_mut_ptr() as i64);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const AddrPort)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3744,7 +3744,7 @@ pub unsafe fn sock_addr_peer(fd: Fd) -> Result<AddrPort, Errno> {
     let ret = wasix_snapshot_preview1::sock_addr_peer(fd as i32, rp0.as_mut_ptr() as i64);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const AddrPort)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3771,7 +3771,7 @@ pub unsafe fn sock_open(af: AddressFamily, socktype: SockType) -> Result<Fd, Err
         wasix_snapshot_preview1::sock_open(af.0 as i32, socktype.0 as i32, rp0.as_mut_ptr() as i64);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Fd)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3787,7 +3787,7 @@ pub unsafe fn sock_set_opt(fd: Fd, sockopt: SockOption, flag: Bool) -> Result<()
     let ret = wasix_snapshot_preview1::sock_set_opt(fd as i32, sockopt.0 as i32, flag.0 as i32);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3804,7 +3804,7 @@ pub unsafe fn sock_get_opt(fd: Fd, sockopt: SockOption) -> Result<Bool, Errno> {
         wasix_snapshot_preview1::sock_get_opt(fd as i32, sockopt.0 as i32, rp0.as_mut_ptr() as i64);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Bool)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3818,7 +3818,7 @@ pub unsafe fn sock_set_linger(fd: Fd, linger: OptionTimestamp) -> Result<(), Err
     let ret = wasix_snapshot_preview1::sock_set_linger(fd as i32, &linger as *const _ as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3834,7 +3834,7 @@ pub unsafe fn sock_get_linger(fd: Fd) -> Result<OptionTimestamp, Errno> {
         0 => Ok(core::ptr::read(
             rp0.as_mut_ptr() as i64 as *const OptionTimestamp
         )),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3849,7 +3849,7 @@ pub unsafe fn sock_set_timeout(fd: Fd, ty: TimeoutType, timeout: Timestamp) -> R
     let ret = wasix_snapshot_preview1::sock_set_timeout(fd as i32, ty as i32, timeout as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3865,7 +3865,7 @@ pub unsafe fn sock_get_timeout(fd: Fd, ty: TimeoutType) -> Result<Timestamp, Err
         wasix_snapshot_preview1::sock_get_timeout(fd as i32, ty as i32, rp0.as_mut_ptr() as i64);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Timestamp)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3879,7 +3879,7 @@ pub unsafe fn sock_set_ttl(fd: Fd, ttl: Count) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::sock_set_ttl(fd as i32, ttl as i32);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3893,7 +3893,7 @@ pub unsafe fn sock_get_ttl(fd: Fd) -> Result<Count, Errno> {
     let ret = wasix_snapshot_preview1::sock_get_ttl(fd as i32, rp0.as_mut_ptr() as i64);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Count)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3907,7 +3907,7 @@ pub unsafe fn sock_set_multicast_ttl_v4(fd: Fd, ttl: Count) -> Result<(), Errno>
     let ret = wasix_snapshot_preview1::sock_set_multicast_ttl_v4(fd as i32, ttl as i32);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3922,7 +3922,7 @@ pub unsafe fn sock_get_multicast_ttl_v4(fd: Fd) -> Result<Count, Errno> {
         wasix_snapshot_preview1::sock_get_multicast_ttl_v4(fd as i32, rp0.as_mut_ptr() as i64);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Count)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3945,7 +3945,7 @@ pub unsafe fn sock_join_multicast_v4(
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3968,7 +3968,7 @@ pub unsafe fn sock_leave_multicast_v4(
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -3991,7 +3991,7 @@ pub unsafe fn sock_join_multicast_v6(
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -4014,7 +4014,7 @@ pub unsafe fn sock_leave_multicast_v6(
     );
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -4029,7 +4029,7 @@ pub unsafe fn sock_set_recv_buf_size(fd: Fd, size: Filesize) -> Result<(), Errno
     let ret = wasix_snapshot_preview1::sock_set_recv_buf_size(fd as i32, size as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -4044,7 +4044,7 @@ pub unsafe fn sock_get_recv_buf_size(fd: Fd) -> Result<Filesize, Errno> {
     let ret = wasix_snapshot_preview1::sock_get_recv_buf_size(fd as i32, rp0.as_mut_ptr() as i64);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -4059,7 +4059,7 @@ pub unsafe fn sock_set_send_buf_size(fd: Fd, size: Filesize) -> Result<(), Errno
     let ret = wasix_snapshot_preview1::sock_set_send_buf_size(fd as i32, size as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -4074,7 +4074,7 @@ pub unsafe fn sock_get_send_buf_size(fd: Fd) -> Result<Filesize, Errno> {
     let ret = wasix_snapshot_preview1::sock_get_send_buf_size(fd as i32, rp0.as_mut_ptr() as i64);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -4089,7 +4089,7 @@ pub unsafe fn sock_bind(fd: Fd, addr: AddrPort) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::sock_bind(fd as i32, &addr as *const _ as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -4108,7 +4108,7 @@ pub unsafe fn sock_listen(fd: Fd, backlog: Count) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::sock_listen(fd as i32, backlog as i32);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -4137,7 +4137,7 @@ pub unsafe fn sock_accept(fd: Fd, flags: Fdflags) -> Result<(Fd, AddrPort), Errn
             core::ptr::read(rp0.as_mut_ptr() as i64 as *const Fd),
             core::ptr::read(rp1.as_mut_ptr() as i64 as *const AddrPort),
         )),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -4156,7 +4156,7 @@ pub unsafe fn sock_connect(fd: Fd, addr: AddrPort) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::sock_connect(fd as i32, &addr as *const _ as i64);
     match ret {
         0 => Ok(()),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -4192,7 +4192,7 @@ pub unsafe fn sock_recv(
             core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize),
             core::ptr::read(rp1.as_mut_ptr() as i64 as *const Roflags),
         )),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -4231,7 +4231,7 @@ pub unsafe fn sock_recv_from(
             core::ptr::read(rp1.as_mut_ptr() as i64 as *const Roflags),
             core::ptr::read(rp2.as_mut_ptr() as i64 as *const AddrPort),
         )),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -4262,7 +4262,7 @@ pub unsafe fn sock_send(
     );
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -4296,7 +4296,7 @@ pub unsafe fn sock_send_to(
     );
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Filesize)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -4334,7 +4334,7 @@ pub unsafe fn resolve(
     );
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Count)),
-        _ => Err(Errno(ret as u32)),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -4357,13 +4357,13 @@ pub mod wasix_snapshot_preview1 {
         /// Implementations are required to provide a non-zero value for supported clocks. For unsupported clocks,
         /// return `errno::inval`.
         /// Note: This is similar to `clock_getres` in POSIX.
-        pub fn clock_res_get(arg0: i64, arg1: i64) -> i32;
+        pub fn clock_res_get(arg0: i32, arg1: i64) -> i32;
         /// Return the time value of a clock.
         /// Note: This is similar to `clock_gettime` in POSIX.
-        pub fn clock_time_get(arg0: i64, arg1: i64, arg2: i64) -> i32;
+        pub fn clock_time_get(arg0: i32, arg1: i64, arg2: i64) -> i32;
         /// Provide file advisory information on a file descriptor.
         /// Note: This is similar to `posix_fadvise` in POSIX.
-        pub fn fd_advise(arg0: i32, arg1: i64, arg2: i64, arg3: i64) -> i32;
+        pub fn fd_advise(arg0: i32, arg1: i64, arg2: i64, arg3: i32) -> i32;
         /// Force the allocation of space in a file.
         /// Note: This is similar to `posix_fallocate` in POSIX.
         pub fn fd_allocate(arg0: i32, arg1: i64, arg2: i64) -> i32;
@@ -4426,7 +4426,7 @@ pub mod wasix_snapshot_preview1 {
         pub fn fd_dup(arg0: i32, arg1: i64) -> i32;
         /// Move the offset of a file descriptor.
         /// Note: This is similar to `lseek` in POSIX.
-        pub fn fd_seek(arg0: i32, arg1: i64, arg2: i64, arg3: i64) -> i32;
+        pub fn fd_seek(arg0: i32, arg1: i64, arg2: i32, arg3: i64) -> i32;
         /// Synchronize the data and metadata of a file to disk.
         /// Note: This is similar to `fsync` in POSIX.
         pub fn fd_sync(arg0: i32) -> i32;
@@ -4519,7 +4519,7 @@ pub mod wasix_snapshot_preview1 {
         pub fn proc_exit(arg0: i32) -> !;
         /// Send a signal to the process of the calling thread.
         /// Note: This is similar to `raise` in POSIX.
-        pub fn proc_raise(arg0: i64) -> i32;
+        pub fn proc_raise(arg0: i32) -> i32;
         /// Temporarily yield execution of the calling thread.
         /// Note: This is similar to `sched_yield` in POSIX.
         pub fn sched_yield() -> i32;
@@ -4544,7 +4544,7 @@ pub mod wasix_snapshot_preview1 {
         /// memory address space, file handles and main event loops.
         /// The function referenced by the fork call must be
         /// exported by the web assembly process.
-        pub fn thread_spawn(arg0: i64, arg1: i64, arg2: i64, arg3: i64, arg4: i64) -> i32;
+        pub fn thread_spawn(arg0: i64, arg1: i64, arg2: i64, arg3: i32, arg4: i64) -> i32;
         /// Sends the current thread to sleep for a period of time
         pub fn thread_sleep(arg0: i64) -> i32;
         /// Returns the index of the current thread
@@ -4568,14 +4568,14 @@ pub mod wasix_snapshot_preview1 {
         pub fn bus_spawn_local(
             arg0: i64,
             arg1: i64,
-            arg2: i64,
+            arg2: i32,
             arg3: i64,
             arg4: i64,
             arg5: i64,
             arg6: i64,
-            arg7: i64,
-            arg8: i64,
-            arg9: i64,
+            arg7: i32,
+            arg8: i32,
+            arg9: i32,
             arg10: i64,
             arg11: i64,
             arg12: i64,
@@ -4585,16 +4585,16 @@ pub mod wasix_snapshot_preview1 {
         pub fn bus_spawn_remote(
             arg0: i64,
             arg1: i64,
-            arg2: i64,
+            arg2: i32,
             arg3: i64,
             arg4: i64,
             arg5: i64,
             arg6: i64,
             arg7: i64,
             arg8: i64,
-            arg9: i64,
-            arg10: i64,
-            arg11: i64,
+            arg9: i32,
+            arg10: i32,
+            arg11: i32,
             arg12: i64,
             arg13: i64,
             arg14: i64,
@@ -4607,10 +4607,10 @@ pub mod wasix_snapshot_preview1 {
         pub fn bus_invoke(
             arg0: i32,
             arg1: i64,
-            arg2: i64,
+            arg2: i32,
             arg3: i64,
             arg4: i64,
-            arg5: i64,
+            arg5: i32,
             arg6: i64,
             arg7: i64,
             arg8: i64,
@@ -4618,21 +4618,21 @@ pub mod wasix_snapshot_preview1 {
         /// Causes a fault on a particular call that was made
         /// to this process from another process; where 'bid'
         /// is the callering process context.
-        pub fn bus_fault(arg0: i32, arg1: i64) -> i32;
+        pub fn bus_fault(arg0: i32, arg1: i32) -> i32;
         /// Closes a bus call based on its bus call handle
         pub fn bus_drop(arg0: i32) -> i32;
         /// Replies to a call that was made to this process
         /// from another process; where 'cid' is the call context.
         /// This will may also drop the handle and release any
         /// associated resources (if keepalive is not set)
-        pub fn bus_reply(arg0: i32, arg1: i64, arg2: i64, arg3: i64) -> i32;
+        pub fn bus_reply(arg0: i32, arg1: i32, arg2: i64, arg3: i64) -> i32;
         /// Invokes a callback within the calling process against
         /// a particular bus call represented by 'cid'.
         pub fn bus_callback(
             arg0: i32,
             arg1: i64,
             arg2: i64,
-            arg3: i64,
+            arg3: i32,
             arg4: i64,
             arg5: i64,
         ) -> i32;
@@ -4663,7 +4663,7 @@ pub mod wasix_snapshot_preview1 {
             arg3: i64,
             arg4: i64,
             arg5: i64,
-            arg6: i64,
+            arg6: i32,
             arg7: i64,
         ) -> i32;
         /// Retrieves the status of a HTTP request
@@ -4728,13 +4728,13 @@ pub mod wasix_snapshot_preview1 {
         /// for the process.
         ///
         /// Note: This is similar to `socket` in POSIX using PF_INET
-        pub fn sock_open(arg0: i64, arg1: i64, arg2: i64) -> i32;
+        pub fn sock_open(arg0: i32, arg1: i32, arg2: i64) -> i32;
         /// Sets a particular socket setting
         /// Note: This is similar to `setsockopt` in POSIX for SO_REUSEADDR
-        pub fn sock_set_opt(arg0: i32, arg1: i64, arg2: i64) -> i32;
+        pub fn sock_set_opt(arg0: i32, arg1: i32, arg2: i32) -> i32;
         /// Retrieve status of particular socket seting
         /// Note: This is similar to `getsockopt` in POSIX for SO_REUSEADDR
-        pub fn sock_get_opt(arg0: i32, arg1: i64, arg2: i64) -> i32;
+        pub fn sock_get_opt(arg0: i32, arg1: i32, arg2: i64) -> i32;
         /// Sets how long the socket will linger
         pub fn sock_set_linger(arg0: i32, arg1: i64) -> i32;
         /// Retrieve how long the socket will linger for
@@ -4752,13 +4752,13 @@ pub mod wasix_snapshot_preview1 {
         /// Retrieve the TTL for IPv4 multicast for this socket
         pub fn sock_get_multicast_ttl_v4(arg0: i32, arg1: i64) -> i32;
         /// Joins a particular multicast IPv4 group
-        pub fn sock_join_multicast_v4(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        pub fn sock_join_multicast_v4(arg0: i32, arg1: i64, arg2: i64) -> i32;
         /// Leaves a particular multicast IPv4 group
-        pub fn sock_leave_multicast_v4(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        pub fn sock_leave_multicast_v4(arg0: i32, arg1: i64, arg2: i64) -> i32;
         /// Joins a particular multicast IPv6 group
-        pub fn sock_join_multicast_v6(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        pub fn sock_join_multicast_v6(arg0: i32, arg1: i64, arg2: i32) -> i32;
         /// Leaves a particular multicast IPv6 group
-        pub fn sock_leave_multicast_v6(arg0: i32, arg1: i32, arg2: i32) -> i32;
+        pub fn sock_leave_multicast_v6(arg0: i32, arg1: i64, arg2: i32) -> i32;
         /// Set size of receive buffer
         /// Note: This is similar to `setsockopt` in POSIX for SO_RCVBUF
         pub fn sock_set_recv_buf_size(arg0: i32, arg1: i64) -> i32;
