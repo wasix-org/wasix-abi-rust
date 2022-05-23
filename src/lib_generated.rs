@@ -3837,7 +3837,11 @@ pub unsafe fn sock_get_linger(fd: Fd) -> Result<OptionTimestamp, Errno> {
 /// * `fd` - Socket descriptor
 /// * `ty` - Type of timeout to be changed
 /// * `timeout` - Value to set the timeout to
-pub unsafe fn sock_set_timeout(fd: Fd, ty: TimeoutType, timeout: Timestamp) -> Result<(), Errno> {
+pub unsafe fn sock_set_timeout(
+    fd: Fd,
+    ty: TimeoutType,
+    timeout: *const OptionTimestamp,
+) -> Result<(), Errno> {
     let ret = wasix_snapshot_preview1::sock_set_timeout(fd as i32, ty as i32, timeout as i64);
     match ret {
         0 => Ok(()),
@@ -3851,12 +3855,14 @@ pub unsafe fn sock_set_timeout(fd: Fd, ty: TimeoutType, timeout: Timestamp) -> R
 ///
 /// * `fd` - Socket descriptor
 /// * `ty` - Type of timeout to be retrieved
-pub unsafe fn sock_get_timeout(fd: Fd, ty: TimeoutType) -> Result<Timestamp, Errno> {
-    let mut rp0 = MaybeUninit::<Timestamp>::uninit();
+pub unsafe fn sock_get_timeout(fd: Fd, ty: TimeoutType) -> Result<OptionTimestamp, Errno> {
+    let mut rp0 = MaybeUninit::<OptionTimestamp>::uninit();
     let ret =
         wasix_snapshot_preview1::sock_get_timeout(fd as i32, ty as i32, rp0.as_mut_ptr() as i64);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Timestamp)),
+        0 => Ok(core::ptr::read(
+            rp0.as_mut_ptr() as i64 as *const OptionTimestamp
+        )),
         _ => Err(Errno(ret as u16)),
     }
 }
