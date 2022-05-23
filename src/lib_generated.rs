@@ -483,14 +483,14 @@ pub const RIGHTS_PATH_UNLINK_FILE: Rights = 1 << 26;
 pub const RIGHTS_POLL_FD_READWRITE: Rights = 1 << 27;
 /// The right to invoke `sock_shutdown`.
 pub const RIGHTS_SOCK_SHUTDOWN: Rights = 1 << 28;
-/// Connect to an address
-pub const RIGHTS_SOCK_CONNECT: Rights = 1 << 29;
-/// Listen for incoming connection on an address
-pub const RIGHTS_SOCK_LISTEN: Rights = 1 << 30;
-/// Bind an address to a socket
-pub const RIGHTS_SOCK_BIND: Rights = 1 << 31;
 /// Accept incoming connection
-pub const RIGHTS_SOCK_ACCEPT: Rights = 1 << 32;
+pub const RIGHTS_SOCK_ACCEPT: Rights = 1 << 29;
+/// Connect to an address
+pub const RIGHTS_SOCK_CONNECT: Rights = 1 << 30;
+/// Listen for incoming connection on an address
+pub const RIGHTS_SOCK_LISTEN: Rights = 1 << 31;
+/// Bind an address to a socket
+pub const RIGHTS_SOCK_BIND: Rights = 1 << 32;
 /// Receive data on a socket
 pub const RIGHTS_SOCK_RECV: Rights = 1 << 33;
 /// Send data on a socket
