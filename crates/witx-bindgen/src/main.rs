@@ -6,5 +6,9 @@ fn main() {
         Some(path) => vec![PathBuf::from(path)],
         None => witx::phases::snapshot().unwrap(),
     };
-    print!("{}", witx_bindgen::generate(&witx_paths));
+    let is64bit = match env::args().nth(2) {
+        Some(path) if path == "64bit" => true,
+        _ => false,
+    };
+    print!("{}", witx_bindgen::generate(&witx_paths, is64bit));
 }

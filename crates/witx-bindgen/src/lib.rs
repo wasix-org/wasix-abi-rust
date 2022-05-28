@@ -5,8 +5,8 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 use witx::*;
 
-pub fn generate<P: AsRef<Path>>(witx_paths: &[P]) -> String {
-    let doc = witx::load(witx_paths).unwrap();
+pub fn generate<P: AsRef<Path>>(witx_paths: &[P], is64bit: bool) -> String {
+    let doc = witx::load(witx_paths, is64bit).unwrap();
 
     let mut raw = String::new();
     raw.push_str(
@@ -330,13 +330,19 @@ impl Render for BuiltinType {
             // overkill for the purposes that we'll be using this type for.
             BuiltinType::U8 { lang_c_char: _ } => src.push_str("u8"),
             BuiltinType::U16 => src.push_str("u16"),
-            BuiltinType::U32  => src.push_str("u32"),
+            BuiltinType::U32{
+                lang_ptr_size: false,
+            } => src.push_str("u32"),
+            BuiltinType::U32{
+                lang_ptr_size: true,
+            } => src.push_str("usize"),
             BuiltinType::U64{
                 lang_ptr_size: false,
             } => src.push_str("u64"),
             BuiltinType::U64{
                 lang_ptr_size: true,
             } => src.push_str("usize"),
+            BuiltinType::Usize => src.push_str("usize"),
             BuiltinType::S8 => src.push_str("i8"),
             BuiltinType::S16 => src.push_str("i16"),
             BuiltinType::S32 => src.push_str("i32"),
@@ -507,6 +513,9 @@ impl Bindgen for Rust<'_> {
             | Instruction::I64FromU64 => top_as("i64"),
 
             Instruction::I32FromHandle { .. }
+            | Instruction::I32FromPointer
+            | Instruction::I32FromConstPointer
+            | Instruction::I32FromUsize
             | Instruction::I32FromChar
             | Instruction::I32FromU8
             | Instruction::I32FromS8
@@ -541,8 +550,11 @@ impl Bindgen for Rust<'_> {
             Instruction::U32FromI32 => top_as("u32"),
             Instruction::S64FromI64 => {}
             Instruction::U64FromI64 => top_as("u64"),
+            Instruction::UsizeFromI32 => top_as("usize"),
             Instruction::UsizeFromI64 => top_as("usize"),
             Instruction::HandleFromI32 { .. } => top_as("u32"),
+            Instruction::PointerFromI32 { .. } => top_as("*mut _"),
+            Instruction::ConstPointerFromI32 { .. } => top_as("*const _"),
             Instruction::PointerFromI64 { .. } => top_as("*mut _"),
             Instruction::ConstPointerFromI64 { .. } => top_as("*const _"),
             Instruction::BitflagsFromI32 { .. } => unimplemented!(),
