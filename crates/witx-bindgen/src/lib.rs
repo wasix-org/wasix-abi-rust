@@ -503,7 +503,11 @@ impl Bindgen for Rust<'_> {
                 results.push(s);
             }
             Instruction::AddrOf => {
-                results.push(format!("&{} as *const _ as i64", operands[0]));
+                if witx::is_64bit_arch() {
+                    results.push(format!("&{} as *const _ as i64", operands[0]));
+                } else {
+                    results.push(format!("&{} as *const _ as i32", operands[0]));
+                }
             }
 
             Instruction::I64FromBitflags { .. }
@@ -539,8 +543,13 @@ impl Bindgen for Rust<'_> {
             }
             Instruction::ListPointerLength => {
                 let list = operands.pop().unwrap();
-                results.push(format!("{}.as_ptr() as i64", list));
-                results.push(format!("{}.len() as i64", list));
+                if witx::is_64bit_arch() {
+                    results.push(format!("{}.as_ptr() as i64", list));
+                    results.push(format!("{}.len() as i64", list));
+                } else {
+                    results.push(format!("{}.as_ptr() as i32", list));
+                    results.push(format!("{}.len() as i32", list));
+                }
             }
             Instruction::S8FromI32 => top_as("i8"),
             Instruction::Char8FromI32 | Instruction::U8FromI32 => top_as("u8"),
@@ -561,7 +570,11 @@ impl Bindgen for Rust<'_> {
             Instruction::BitflagsFromI64 { .. } => unimplemented!(),
 
             Instruction::ReturnPointerGet { n } => {
-                results.push(format!("rp{}.as_mut_ptr() as i64", n));
+                if witx::is_64bit_arch() {
+                    results.push(format!("rp{}.as_mut_ptr() as i64", n));
+                } else {
+                    results.push(format!("rp{}.as_mut_ptr() as i32", n));
+                }
             }
 
             Instruction::Load { ty } => {

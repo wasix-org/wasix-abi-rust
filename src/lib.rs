@@ -31,8 +31,14 @@
 
 #![no_std]
 
-mod lib_generated;
-pub use lib_generated::*;
+#[cfg(target_pointer_width = "32")]
+mod lib_generated32;
+#[cfg(target_pointer_width = "64")]
+mod lib_generated64;
+#[cfg(target_pointer_width = "32")]
+pub use lib_generated32::*;
+#[cfg(target_pointer_width = "64")]
+pub use lib_generated64::*;
 
 /// Special `Dircookie` value indicating the start of a directory.
 pub const DIRCOOKIE_START: Dircookie = 0;
