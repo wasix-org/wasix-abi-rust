@@ -703,6 +703,8 @@ pub const FILETYPE_SOCKET_STREAM: Filetype = Filetype(6);
 pub const FILETYPE_SYMBOLIC_LINK: Filetype = Filetype(7);
 /// The file descriptor or file refers to a raw socket.
 pub const FILETYPE_SOCKET_RAW: Filetype = Filetype(8);
+/// The file descriptor or file refers to a sequential packet socket.
+pub const FILETYPE_SOCKET_SEQPACKET: Filetype = Filetype(9);
 impl Filetype {
     pub const fn raw(&self) -> u8 {
         self.0
@@ -719,11 +721,12 @@ impl Filetype {
             6 => "SOCKET_STREAM",
             7 => "SYMBOLIC_LINK",
             8 => "SOCKET_RAW",
+            9 => "SOCKET_SEQPACKET",
             _ => unsafe { core::hint::unreachable_unchecked() },
         }
     }
     pub fn message(&self) -> &'static str {
-        match self.0 {0 => "The type of the file descriptor or file is unknown or is different from any of the other types specified.",1 => "The file descriptor or file refers to a block device inode.",2 => "The file descriptor or file refers to a character device inode.",3 => "The file descriptor or file refers to a directory inode.",4 => "The file descriptor or file refers to a regular file inode.",5 => "The file descriptor or file refers to a datagram socket.",6 => "The file descriptor or file refers to a byte-stream socket.",7 => "The file refers to a symbolic link inode.",8 => "The file descriptor or file refers to a raw socket.",_ => unsafe { core::hint::unreachable_unchecked() },}
+        match self.0 {0 => "The type of the file descriptor or file is unknown or is different from any of the other types specified.",1 => "The file descriptor or file refers to a block device inode.",2 => "The file descriptor or file refers to a character device inode.",3 => "The file descriptor or file refers to a directory inode.",4 => "The file descriptor or file refers to a regular file inode.",5 => "The file descriptor or file refers to a datagram socket.",6 => "The file descriptor or file refers to a byte-stream socket.",7 => "The file refers to a symbolic link inode.",8 => "The file descriptor or file refers to a raw socket.",9 => "The file descriptor or file refers to a sequential packet socket.",_ => unsafe { core::hint::unreachable_unchecked() },}
     }
 }
 impl fmt::Debug for Filetype {
