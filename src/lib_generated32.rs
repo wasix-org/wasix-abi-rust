@@ -1662,6 +1662,8 @@ pub const SOCK_TYPE_SOCKET_DGRAM: SockType = SockType(0);
 pub const SOCK_TYPE_SOCKET_STREAM: SockType = SockType(1);
 /// The file descriptor or file refers to a raw socket.
 pub const SOCK_TYPE_SOCKET_RAW: SockType = SockType(2);
+/// The file descriptor or file refers to a sequential packet socket.
+pub const SOCK_TYPE_SOCKET_SEQPACKET: SockType = SockType(3);
 impl SockType {
     pub const fn raw(&self) -> u8 {
         self.0
@@ -1672,6 +1674,7 @@ impl SockType {
             0 => "SOCKET_DGRAM",
             1 => "SOCKET_STREAM",
             2 => "SOCKET_RAW",
+            3 => "SOCKET_SEQPACKET",
             _ => unsafe { core::hint::unreachable_unchecked() },
         }
     }
@@ -1680,6 +1683,7 @@ impl SockType {
             0 => "The file descriptor or file refers to a datagram socket.",
             1 => "The file descriptor or file refers to a byte-stream socket.",
             2 => "The file descriptor or file refers to a raw socket.",
+            3 => "The file descriptor or file refers to a sequential packet socket.",
             _ => unsafe { core::hint::unreachable_unchecked() },
         }
     }
