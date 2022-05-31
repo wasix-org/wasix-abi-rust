@@ -38,6 +38,13 @@ use core::fmt;
         ));
     }
 
+    // Replace the module names
+    if is64bit {
+        raw = raw.replace("wasix_module_name", "wasix_64v1");
+    } else {
+        raw = raw.replace("wasix_module_name", "wasix_32v1");
+    }
+
     let mut rustfmt = Command::new("rustfmt")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
