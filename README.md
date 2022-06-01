@@ -15,7 +15,7 @@
 </div>
 
 This crate contains API bindings for [WASIX](https://github.com/john-sharratt/wasix)
-system calls in Rust, and currently reflects the `wasix_snapshot_preview1`
+system calls in Rust, and currently reflects the `wasix_v1`
 module. This crate is quite low-level and provides conceptually a "system call"
 interface. In most settings, it's better to use the Rust standard library, which
 has WASI support.
