@@ -927,6 +927,10 @@ pub type Eventrwflags = u16;
 /// The peer of this socket has closed or disconnected.
 pub const EVENTRWFLAGS_FD_READWRITE_HANGUP: Eventrwflags = 1 << 0;
 
+pub type Eventfdflags = u16;
+/// Indicates if this event file description will run as a semaphore
+pub const EVENTFDFLAGS_SEMAPHORE: Eventfdflags = 1 << 0;
+
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct EventFdReadwrite {
@@ -3428,6 +3432,17 @@ pub unsafe fn fd_dup(fd: Fd) -> Result<Fd, Errno> {
     }
 }
 
+/// Creates a file handle for event notifications
+///
+pub unsafe fn fd_event(flags: Eventfdflags) -> Result<Fd, Errno> {
+    let mut rp0 = MaybeUninit::<Fd>::uninit();
+    let ret = wasix_32v1::fd_event(flags as i32, rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
 /// Move the offset of a file descriptor.
 /// Note: This is similar to `lseek` in POSIX.
 ///
@@ -5239,6 +5254,9 @@ pub mod wasix_32v1 {
         pub fn fd_renumber(arg0: i32, arg1: i32) -> i32;
         /// Atomically duplicate a file handle.
         pub fn fd_dup(arg0: i32, arg1: i32) -> i32;
+        /// Creates a file handle for event notifications
+        ///
+        pub fn fd_event(arg0: i32, arg1: i32) -> i32;
         /// Move the offset of a file descriptor.
         /// Note: This is similar to `lseek` in POSIX.
         pub fn fd_seek(arg0: i32, arg1: i64, arg2: i32, arg3: i32) -> i32;
