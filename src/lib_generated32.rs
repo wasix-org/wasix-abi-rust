@@ -1261,6 +1261,8 @@ pub const BUS_DATA_FORMAT_JSON: BusDataFormat = BusDataFormat(3);
 pub const BUS_DATA_FORMAT_YAML: BusDataFormat = BusDataFormat(4);
 /// XML
 pub const BUS_DATA_FORMAT_XML: BusDataFormat = BusDataFormat(5);
+/// RKYV
+pub const BUS_DATA_FORMAT_RKYV: BusDataFormat = BusDataFormat(6);
 impl BusDataFormat {
     pub const fn raw(&self) -> u8 {
         self.0
@@ -1274,6 +1276,7 @@ impl BusDataFormat {
             3 => "JSON",
             4 => "YAML",
             5 => "XML",
+            6 => "RKYV",
             _ => unsafe { core::hint::unreachable_unchecked() },
         }
     }
@@ -1285,6 +1288,7 @@ impl BusDataFormat {
             3 => "JSON",
             4 => "YAML",
             5 => "XML",
+            6 => "RKYV",
             _ => unsafe { core::hint::unreachable_unchecked() },
         }
     }
