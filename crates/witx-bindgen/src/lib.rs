@@ -219,6 +219,20 @@ fn render_enum_like_variant(src: &mut String, name: &str, s: &Variant) {
     src.push_str("}\n");
     src.push_str("}\n");
 
+    src.push_str("impl From<");
+    s.tag_repr.render(src);
+    src.push_str(">\n");
+    src.push_str("for ");
+    src.push_str(&camel_name);
+    src.push_str("\n");
+    src.push_str("{\n");
+    src.push_str("fn from(a: ");
+    s.tag_repr.render(src);
+    src.push_str(") -> Self {\n");
+    src.push_str("Self(a)");
+    src.push_str("}\n");
+    src.push_str("}\n");
+
     // Auto-synthesize an implementation of the standard `Error` trait for
     // error-looking types based on their name.
     //

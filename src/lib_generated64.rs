@@ -64,6 +64,11 @@ impl fmt::Debug for Clockid {
             .finish()
     }
 }
+impl From<u32> for Clockid {
+    fn from(a: u32) -> Self {
+        Self(a)
+    }
+}
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
@@ -401,6 +406,11 @@ impl fmt::Debug for Errno {
             .finish()
     }
 }
+impl From<u16> for Errno {
+    fn from(a: u16) -> Self {
+        Self(a)
+    }
+}
 impl fmt::Display for Errno {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} (error {})", self.name(), self.0)
@@ -539,6 +549,11 @@ impl fmt::Debug for Option {
             .finish()
     }
 }
+impl From<u8> for Option {
+    fn from(a: u8) -> Self {
+        Self(a)
+    }
+}
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -618,6 +633,11 @@ impl fmt::Debug for Bool {
             .finish()
     }
 }
+impl From<u8> for Bool {
+    fn from(a: u8) -> Self {
+        Self(a)
+    }
+}
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -676,6 +696,11 @@ impl fmt::Debug for Whence {
             .field("name", &self.name())
             .field("message", &self.message())
             .finish()
+    }
+}
+impl From<u8> for Whence {
+    fn from(a: u8) -> Self {
+        Self(a)
     }
 }
 
@@ -738,6 +763,11 @@ impl fmt::Debug for Filetype {
             .finish()
     }
 }
+impl From<u8> for Filetype {
+    fn from(a: u8) -> Self {
+        Self(a)
+    }
+}
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -793,6 +823,11 @@ impl fmt::Debug for Advice {
             .field("name", &self.name())
             .field("message", &self.message())
             .finish()
+    }
+}
+impl From<u8> for Advice {
+    fn from(a: u8) -> Self {
+        Self(a)
     }
 }
 
@@ -920,6 +955,11 @@ impl fmt::Debug for Eventtype {
             .field("name", &self.name())
             .field("message", &self.message())
             .finish()
+    }
+}
+impl From<u8> for Eventtype {
+    fn from(a: u8) -> Self {
+        Self(a)
     }
 }
 
@@ -1132,6 +1172,11 @@ impl fmt::Debug for BusError {
             .finish()
     }
 }
+impl From<u32> for BusError {
+    fn from(a: u32) -> Self {
+        Self(a)
+    }
+}
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
@@ -1177,12 +1222,15 @@ impl fmt::Debug for StdioMode {
             .finish()
     }
 }
+impl From<u8> for StdioMode {
+    fn from(a: u8) -> Self {
+        Self(a)
+    }
+}
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
-pub struct BusHandles {
-    /// Handle of the bus process
-    pub handle: Bid,
+pub struct ProcessHandles {
     /// File handle for STDIN
     pub stdin: Fd,
     /// File handle for STDOUT
@@ -1193,50 +1241,11 @@ pub struct BusHandles {
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct BusEventExit {
+    /// Handle of the bus process that has exited
+    pub bid: Bid,
     /// Exit code of the bus process that has exited
     pub rval: Exitcode,
 }
-#[repr(transparent)]
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub struct BusDataType(u8);
-/// The bus process has been invoked by a caller
-pub const BUS_DATA_TYPE_CALL: BusDataType = BusDataType(0);
-/// Callback with some out-of-band data to the caller
-pub const BUS_DATA_TYPE_CALLBACK: BusDataType = BusDataType(1);
-/// Call within the bus process has returned
-pub const BUS_DATA_TYPE_REPLY: BusDataType = BusDataType(2);
-impl BusDataType {
-    pub const fn raw(&self) -> u8 {
-        self.0
-    }
-
-    pub fn name(&self) -> &'static str {
-        match self.0 {
-            0 => "CALL",
-            1 => "CALLBACK",
-            2 => "REPLY",
-            _ => unsafe { core::hint::unreachable_unchecked() },
-        }
-    }
-    pub fn message(&self) -> &'static str {
-        match self.0 {
-            0 => "The bus process has been invoked by a caller",
-            1 => "Callback with some out-of-band data to the caller",
-            2 => "Call within the bus process has returned",
-            _ => unsafe { core::hint::unreachable_unchecked() },
-        }
-    }
-}
-impl fmt::Debug for BusDataType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("BusDataType")
-            .field("code", &self.0)
-            .field("name", &self.name())
-            .field("message", &self.message())
-            .finish()
-    }
-}
-
 #[repr(transparent)]
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct BusDataFormat(u8);
@@ -1289,19 +1298,43 @@ impl fmt::Debug for BusDataFormat {
             .finish()
     }
 }
+impl From<u8> for BusDataFormat {
+    fn from(a: u8) -> Self {
+        Self(a)
+    }
+}
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
-pub struct BusEventData {
-    /// Type of event data that is held here
-    pub ty: BusDataType,
+#[derive(Copy, Clone)]
+pub struct BusEventCall {
+    /// Parent handle if this is a part of a call stack
+    pub parent: OptionCid,
+    /// Handle of the call
+    pub cid: Cid,
     /// Format of the data on the bus
     pub format: BusDataFormat,
-    /// Handle of the call that has made a callback
-    pub cid: Cid,
     /// The topic that describes the event that happened
+    /// (note: this buffer must NOT be freed - it will be reused on subsequent calls)
+    pub topic: *mut u8,
+    /// The size of the topic name
     pub topic_len: Pointersize,
     /// The buffer where event data is stored
+    /// (note: this buffer must be freed by the receiver)
+    pub buf: *mut u8,
+    /// The amount of data held in the buffer
+    pub buf_len: Pointersize,
+}
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct BusEventResult {
+    /// Format of the data on the bus
+    pub format: BusDataFormat,
+    /// Handle of the call
+    pub cid: Cid,
+    /// The buffer where event data is stored
+    /// (note: this buffer must be freed by the receiver)
+    pub buf: *mut u8,
+    /// The amount of data held in the buffer
     pub buf_len: Pointersize,
 }
 #[repr(C)]
@@ -1312,15 +1345,27 @@ pub struct BusEventFault {
     /// Fault that was raised against this call
     pub fault: BusError,
 }
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct BusEventClose {
+    /// Handle of the call to release resources
+    pub cid: Cid,
+}
 #[repr(transparent)]
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct BusEventType(u8);
+/// Nothing has happened
+pub const BUS_EVENT_TYPE_NOOP: BusEventType = BusEventType(0);
 /// The bus process has exited
-pub const BUS_EVENT_TYPE_EXIT: BusEventType = BusEventType(0);
-/// The bus data recevied for a specific event
-pub const BUS_EVENT_TYPE_DATA: BusEventType = BusEventType(1);
+pub const BUS_EVENT_TYPE_EXIT: BusEventType = BusEventType(1);
+/// Someone has invoked something
+pub const BUS_EVENT_TYPE_CALL: BusEventType = BusEventType(2);
+/// An invocation has completed and this is the result
+pub const BUS_EVENT_TYPE_RESULT: BusEventType = BusEventType(3);
 /// Fault has occured on one of the calls
-pub const BUS_EVENT_TYPE_FAULT: BusEventType = BusEventType(2);
+pub const BUS_EVENT_TYPE_FAULT: BusEventType = BusEventType(4);
+/// Frees all the resources on a call
+pub const BUS_EVENT_TYPE_CLOSE: BusEventType = BusEventType(5);
 impl BusEventType {
     pub const fn raw(&self) -> u8 {
         self.0
@@ -1328,17 +1373,23 @@ impl BusEventType {
 
     pub fn name(&self) -> &'static str {
         match self.0 {
-            0 => "EXIT",
-            1 => "DATA",
-            2 => "FAULT",
+            0 => "NOOP",
+            1 => "EXIT",
+            2 => "CALL",
+            3 => "RESULT",
+            4 => "FAULT",
+            5 => "CLOSE",
             _ => unsafe { core::hint::unreachable_unchecked() },
         }
     }
     pub fn message(&self) -> &'static str {
         match self.0 {
-            0 => "The bus process has exited",
-            1 => "The bus data recevied for a specific event",
-            2 => "Fault has occured on one of the calls",
+            0 => "Nothing has happened",
+            1 => "The bus process has exited",
+            2 => "Someone has invoked something",
+            3 => "An invocation has completed and this is the result",
+            4 => "Fault has occured on one of the calls",
+            5 => "Frees all the resources on a call",
             _ => unsafe { core::hint::unreachable_unchecked() },
         }
     }
@@ -1352,13 +1403,21 @@ impl fmt::Debug for BusEventType {
             .finish()
     }
 }
+impl From<u8> for BusEventType {
+    fn from(a: u8) -> Self {
+        Self(a)
+    }
+}
 
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub union BusEventU {
+    pub noop: u8,
     pub exit: BusEventExit,
-    pub data: BusEventData,
+    pub call: BusEventCall,
+    pub result: BusEventResult,
     pub fault: BusEventFault,
+    pub close: BusEventClose,
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -1644,6 +1703,11 @@ impl fmt::Debug for Signal {
             .finish()
     }
 }
+impl From<u8> for Signal {
+    fn from(a: u8) -> Self {
+        Self(a)
+    }
+}
 
 pub type Riflags = u16;
 /// Returns the message without removing it from the socket's receive queue.
@@ -1699,6 +1763,11 @@ impl fmt::Debug for SockType {
             .field("name", &self.name())
             .field("message", &self.message())
             .finish()
+    }
+}
+impl From<u8> for SockType {
+    fn from(a: u8) -> Self {
+        Self(a)
     }
 }
 
@@ -2522,6 +2591,11 @@ impl fmt::Debug for SockProto {
             .finish()
     }
 }
+impl From<u16> for SockProto {
+    fn from(a: u16) -> Self {
+        Self(a)
+    }
+}
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
@@ -2565,6 +2639,11 @@ impl fmt::Debug for SockStatus {
             .field("name", &self.name())
             .field("message", &self.message())
             .finish()
+    }
+}
+impl From<u8> for SockStatus {
+    fn from(a: u8) -> Self {
+        Self(a)
     }
 }
 
@@ -2704,6 +2783,11 @@ impl fmt::Debug for SockOption {
             .finish()
     }
 }
+impl From<u8> for SockOption {
+    fn from(a: u8) -> Self {
+        Self(a)
+    }
+}
 
 pub type StreamSecurity = u8;
 /// Unencrypted
@@ -2768,6 +2852,11 @@ impl fmt::Debug for AddressFamily {
             .field("name", &self.name())
             .field("message", &self.message())
             .finish()
+    }
+}
+impl From<u8> for AddressFamily {
+    fn from(a: u8) -> Self {
+        Self(a)
     }
 }
 
@@ -2978,6 +3067,11 @@ impl fmt::Debug for Preopentype {
             .field("name", &self.name())
             .field("message", &self.message())
             .finish()
+    }
+}
+impl From<u8> for Preopentype {
+    fn from(a: u8) -> Self {
+        Self(a)
     }
 }
 
@@ -3921,7 +4015,9 @@ pub unsafe fn chdir(path: &str) -> Result<(), Errno> {
 ///
 /// ## Parameters
 ///
-/// * `name` - Name of the function that will be invoked as a new thread
+/// * `name` - Name of the function that will be invoked as a new thread which
+///   will receive the user_data supplied
+///   Function signature fn(u64)
 /// * `user_data` - User data that will be supplied to the function when its called
 /// * `reactor` - Indicates if the function will operate as a reactor or
 ///   as a normal thread. Reactors will be repeatable called
@@ -4017,8 +4113,7 @@ pub unsafe fn thread_exit(rval: Exitcode) {
     wasix_64v1::thread_exit(rval as i32);
 }
 
-/// Spawns a new bus process for a particular web WebAssembly
-/// binary that is referenced by its process name.
+/// Spawns a new process within the context of this machine
 ///
 /// ## Parameters
 ///
@@ -4037,7 +4132,7 @@ pub unsafe fn thread_exit(rval: Exitcode) {
 /// ## Return
 ///
 /// Returns a bus process id that can be used to invoke calls
-pub unsafe fn bus_spawn_local(
+pub unsafe fn process_spawn(
     name: &str,
     chroot: Bool,
     args: &str,
@@ -4046,9 +4141,9 @@ pub unsafe fn bus_spawn_local(
     stdout: StdioMode,
     stderr: StdioMode,
     working_dir: &str,
-) -> Result<BusHandles, BusError> {
-    let mut rp0 = MaybeUninit::<BusHandles>::uninit();
-    let ret = wasix_64v1::bus_spawn_local(
+) -> Result<ProcessHandles, BusError> {
+    let mut rp0 = MaybeUninit::<ProcessHandles>::uninit();
+    let ret = wasix_64v1::process_spawn(
         name.as_ptr() as i64,
         name.len() as i64,
         chroot.0 as i32,
@@ -4064,59 +4159,64 @@ pub unsafe fn bus_spawn_local(
         rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const BusHandles)),
+        0 => Ok(core::ptr::read(
+            rp0.as_mut_ptr() as i64 as *const ProcessHandles
+        )),
         _ => Err(BusError(ret as u32)),
     }
 }
 
 /// Spawns a new bus process for a particular web WebAssembly
-/// binary that is referenced by its process name on a remote instance
+/// binary that is referenced by its process name.
 ///
 /// ## Parameters
 ///
 /// * `name` - Name of the process to be spawned
-/// * `chroot` - Indicates if the process will chroot or not
-/// * `args` - List of the arguments to pass the process
-///   (entries are separated by line feeds)
-/// * `preopen` - List of the preopens for this process
-///   (entries are separated by line feeds)
-/// * `working_dir` - Working directory where this process should run
-///   (passing '.' will use the current directory)
-/// * `stdin` - How will stdin be handled
-/// * `stdout` - How will stdout be handled
-/// * `stderr` - How will stderr be handled
+/// * `reuse` - Indicates if the existing processes should be reused
+///   if they are already running
+///
+/// ## Return
+///
+/// Returns a bus process id that can be used to invoke calls
+pub unsafe fn bus_open_local(name: &str, reuse: Bool) -> Result<Bid, BusError> {
+    let mut rp0 = MaybeUninit::<Bid>::uninit();
+    let ret = wasix_64v1::bus_open_local(
+        name.as_ptr() as i64,
+        name.len() as i64,
+        reuse.0 as i32,
+        rp0.as_mut_ptr() as i64,
+    );
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Bid)),
+        _ => Err(BusError(ret as u32)),
+    }
+}
+
+/// Spawns a new bus process for a particular web WebAssembly
+/// binary that is referenced by its process name on a remote instance.
+///
+/// ## Parameters
+///
+/// * `name` - Name of the process to be spawned
+/// * `reuse` - Indicates if the existing processes should be reused
+///   if they are already running
 /// * `instance` - Instance identifier where this process will be spawned
 /// * `token` - Acceess token used to authenticate with the instance
 ///
 /// ## Return
 ///
 /// Returns a bus process id that can be used to invoke calls
-pub unsafe fn bus_spawn_remote(
+pub unsafe fn bus_open_remote(
     name: &str,
-    chroot: Bool,
-    args: &str,
-    preopen: &str,
-    working_dir: &str,
-    stdin: StdioMode,
-    stdout: StdioMode,
-    stderr: StdioMode,
+    reuse: Bool,
     instance: &str,
     token: &str,
-) -> Result<BusHandles, BusError> {
-    let mut rp0 = MaybeUninit::<BusHandles>::uninit();
-    let ret = wasix_64v1::bus_spawn_remote(
+) -> Result<Bid, BusError> {
+    let mut rp0 = MaybeUninit::<Bid>::uninit();
+    let ret = wasix_64v1::bus_open_remote(
         name.as_ptr() as i64,
         name.len() as i64,
-        chroot.0 as i32,
-        args.as_ptr() as i64,
-        args.len() as i64,
-        preopen.as_ptr() as i64,
-        preopen.len() as i64,
-        working_dir.as_ptr() as i64,
-        working_dir.len() as i64,
-        stdin.0 as i32,
-        stdout.0 as i32,
-        stderr.0 as i32,
+        reuse.0 as i32,
         instance.as_ptr() as i64,
         instance.len() as i64,
         token.as_ptr() as i64,
@@ -4124,7 +4224,7 @@ pub unsafe fn bus_spawn_remote(
         rp0.as_mut_ptr() as i64,
     );
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const BusHandles)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Bid)),
         _ => Err(BusError(ret as u32)),
     }
 }
@@ -4147,25 +4247,22 @@ pub unsafe fn bus_close(bid: Bid) -> Result<(), BusError> {
 /// ## Parameters
 ///
 /// * `bid` - Handle of the bus process to invoke the call within
-/// * `parent` - Optional parent bus call that this is related to
 /// * `keep_alive` - Causes the call handle to remain open even when A
 ///   reply is received. It is then the  callers responsibility
 ///   to invoke 'bus_drop' when they are finished with the call
 /// * `topic` - Topic that describes the type of call to made
 /// * `format` - Format of the data pushed onto the bus
 /// * `buf` - The buffer where data to be transmitted is stored
-pub unsafe fn bus_invoke(
+pub unsafe fn bus_call(
     bid: Bid,
-    parent: *const OptionCid,
     keep_alive: Bool,
     topic: &str,
     format: BusDataFormat,
     buf: BufArray<'_>,
 ) -> Result<Cid, BusError> {
     let mut rp0 = MaybeUninit::<Cid>::uninit();
-    let ret = wasix_64v1::bus_invoke(
+    let ret = wasix_64v1::bus_call(
         bid as i32,
-        parent as i64,
         keep_alive.0 as i32,
         topic.as_ptr() as i64,
         topic.len() as i64,
@@ -4180,31 +4277,72 @@ pub unsafe fn bus_invoke(
     }
 }
 
-/// Causes a fault on a particular call that was made
-/// to this process from another process; where 'bid'
-/// is the callering process context.
+/// Invokes a call within the context of another call
 ///
 /// ## Parameters
 ///
-/// * `cid` - Handle of the call to raise a fault on
-/// * `fault` - Fault to be raised on the bus
-pub unsafe fn bus_fault(cid: Cid, fault: BusError) -> Result<(), BusError> {
-    let ret = wasix_64v1::bus_fault(cid as i32, fault.0 as i32);
+/// * `parent` - Parent bus call that this is related to
+/// * `keep_alive` - Causes the call handle to remain open even when A
+///   reply is received. It is then the  callers responsibility
+///   to invoke 'bus_drop' when they are finished with the call
+/// * `topic` - Topic that describes the type of call to made
+/// * `format` - Format of the data pushed onto the bus
+/// * `buf` - The buffer where data to be transmitted is stored
+pub unsafe fn bus_subcall(
+    parent: Cid,
+    keep_alive: Bool,
+    topic: &str,
+    format: BusDataFormat,
+    buf: BufArray<'_>,
+) -> Result<Cid, BusError> {
+    let mut rp0 = MaybeUninit::<Cid>::uninit();
+    let ret = wasix_64v1::bus_subcall(
+        parent as i32,
+        keep_alive.0 as i32,
+        topic.as_ptr() as i64,
+        topic.len() as i64,
+        format.0 as i32,
+        buf.as_ptr() as i64,
+        buf.len() as i64,
+        rp0.as_mut_ptr() as i64,
+    );
     match ret {
-        0 => Ok(()),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Cid)),
         _ => Err(BusError(ret as u32)),
     }
 }
 
-/// Closes a bus call based on its bus call handle
+/// Polls for any outstanding events from a particular
+/// bus process by its handle
 ///
 /// ## Parameters
 ///
-/// * `cid` - Handle of the bus call handle to be dropped
-pub unsafe fn bus_drop(cid: Cid) -> Result<(), BusError> {
-    let ret = wasix_64v1::bus_drop(cid as i32);
+/// * `timeout` - Timeout before the poll returns, if one passed 0
+///   as the timeout then this call is non blocking.
+/// * `events` - An events buffer that will hold any received bus events
+/// * `malloc` - Name of the function that will be invoked to allocate memory
+///   Function signature fn(u64) -> u64
+///
+/// ## Return
+///
+/// Returns the number of events that have occured
+pub unsafe fn bus_poll(
+    timeout: Timestamp,
+    events: *mut BusEvent,
+    nevents: Size,
+    malloc: &str,
+) -> Result<Size, BusError> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
+    let ret = wasix_64v1::bus_poll(
+        timeout as i64,
+        events as i64,
+        nevents as i32,
+        malloc.as_ptr() as i64,
+        malloc.len() as i64,
+        rp0.as_mut_ptr() as i64,
+    );
     match ret {
-        0 => Ok(()),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
         _ => Err(BusError(ret as u32)),
     }
 }
@@ -4219,12 +4357,12 @@ pub unsafe fn bus_drop(cid: Cid) -> Result<(), BusError> {
 /// * `cid` - Handle of the call to send a reply on
 /// * `format` - Format of the data pushed onto the bus
 /// * `buf` - The buffer where data to be transmitted is stored
-pub unsafe fn bus_reply(
+pub unsafe fn call_reply(
     cid: Cid,
     format: BusDataFormat,
     buf: BufArray<'_>,
 ) -> Result<(), BusError> {
-    let ret = wasix_64v1::bus_reply(
+    let ret = wasix_64v1::call_reply(
         cid as i32,
         format.0 as i32,
         buf.as_ptr() as i64,
@@ -4236,122 +4374,25 @@ pub unsafe fn bus_reply(
     }
 }
 
-/// Invokes a callback within the calling process against
-/// a particular bus call represented by 'cid'.
+/// Causes a fault on a particular call that was made
+/// to this process from another process; where 'bid'
+/// is the callering process context.
 ///
 /// ## Parameters
 ///
-/// * `cid` - Handle of the call where a callback will be send
-/// * `topic` - Topic that describes the type of callback
-/// * `format` - Format of the data pushed onto the bus
-/// * `buf` - The buffer where data to be transmitted is stored
-pub unsafe fn bus_callback(
-    cid: Cid,
-    topic: &str,
-    format: BusDataFormat,
-    buf: BufArray<'_>,
-) -> Result<(), BusError> {
-    let ret = wasix_64v1::bus_callback(
-        cid as i32,
-        topic.as_ptr() as i64,
-        topic.len() as i64,
-        format.0 as i32,
-        buf.as_ptr() as i64,
-        buf.len() as i64,
-    );
-    match ret {
-        0 => Ok(()),
-        _ => Err(BusError(ret as u32)),
-    }
+/// * `cid` - Handle of the call to raise a fault on
+/// * `fault` - Fault to be raised on the bus
+pub unsafe fn call_fault(cid: Cid, fault: BusError) {
+    wasix_64v1::call_fault(cid as i32, fault.0 as i32);
 }
 
-/// Tells the operating system that this process is
-/// now listening for bus calls on a particular topic
+/// Closes a bus call based on its bus call handle
 ///
 /// ## Parameters
 ///
-/// * `parent` - Optional parent bus call that this is related to
-/// * `topic` - Topic that describes the process will listen forcalls on
-pub unsafe fn bus_listen(parent: *const OptionCid, topic: &str) -> Result<(), BusError> {
-    let ret = wasix_64v1::bus_listen(parent as i64, topic.as_ptr() as i64, topic.len() as i64);
-    match ret {
-        0 => Ok(()),
-        _ => Err(BusError(ret as u32)),
-    }
-}
-
-/// Polls for any outstanding events from a particular
-/// bus process by its handle
-///
-/// ## Parameters
-///
-/// * `bid` - Handle of the bus process to poll for new events
-///   (if no process is supplied then it polls for the current process)
-/// * `timeout` - Timeout before the poll returns, if one passed 0
-///   as the timeout then this call is non blocking.
-/// * `events` - An events buffer that will hold any received bus events
-///
-/// ## Return
-///
-/// Returns the number of events that have occured
-pub unsafe fn bus_poll(
-    bid: *const OptionBid,
-    timeout: Timestamp,
-    events: *mut BusEvent,
-    nevents: Size,
-) -> Result<Size, BusError> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasix_64v1::bus_poll(
-        bid as i64,
-        timeout as i64,
-        events as i64,
-        nevents as i32,
-        rp0.as_mut_ptr() as i64,
-    );
-    match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
-        _ => Err(BusError(ret as u32)),
-    }
-}
-
-/// Receives the next event data from the bus
-///
-/// ## Parameters
-///
-/// * `bid` - Handle of the bus process to poll for new events
-///   (if no process is supplied then it polls for the current process)
-/// * `timeout` - Timeout before the poll returns, if one passed 0
-///   as the timeout then this call is non blocking.
-/// * `topic` - The topic that describes the event that happened
-/// * `buf` - The buffer where event data is stored
-///
-/// ## Return
-///
-/// Returns the number of events that have occured
-pub unsafe fn bus_poll_data(
-    bid: *const OptionBid,
-    timeout: Timestamp,
-    topic: *mut u8,
-    topic_len: Pointersize,
-    buf: *mut u8,
-    buf_len: Pointersize,
-) -> Result<BusEventData, BusError> {
-    let mut rp0 = MaybeUninit::<BusEventData>::uninit();
-    let ret = wasix_64v1::bus_poll_data(
-        bid as i64,
-        timeout as i64,
-        topic as i64,
-        topic_len as i64,
-        buf as i64,
-        buf_len as i64,
-        rp0.as_mut_ptr() as i64,
-    );
-    match ret {
-        0 => Ok(core::ptr::read(
-            rp0.as_mut_ptr() as i64 as *const BusEventData
-        )),
-        _ => Err(BusError(ret as u32)),
-    }
+/// * `cid` - Handle of the bus call handle to be dropped
+pub unsafe fn call_close(cid: Cid) {
+    wasix_64v1::call_close(cid as i32);
 }
 
 /// Connects to a websocket at a particular network URL
@@ -5396,9 +5437,8 @@ pub mod wasix_64v1 {
         /// of 0 indicates successful termination of the thread. The meanings of
         /// other values is dependent on the environment.
         pub fn thread_exit(arg0: i32) -> !;
-        /// Spawns a new bus process for a particular web WebAssembly
-        /// binary that is referenced by its process name.
-        pub fn bus_spawn_local(
+        /// Spawns a new process within the context of this machine
+        pub fn process_spawn(
             arg0: i64,
             arg1: i64,
             arg2: i32,
@@ -5414,8 +5454,11 @@ pub mod wasix_64v1 {
             arg12: i64,
         ) -> i32;
         /// Spawns a new bus process for a particular web WebAssembly
-        /// binary that is referenced by its process name on a remote instance
-        pub fn bus_spawn_remote(
+        /// binary that is referenced by its process name.
+        pub fn bus_open_local(arg0: i64, arg1: i64, arg2: i32, arg3: i64) -> i32;
+        /// Spawns a new bus process for a particular web WebAssembly
+        /// binary that is referenced by its process name on a remote instance.
+        pub fn bus_open_remote(
             arg0: i64,
             arg1: i64,
             arg2: i32,
@@ -5424,67 +5467,45 @@ pub mod wasix_64v1 {
             arg5: i64,
             arg6: i64,
             arg7: i64,
-            arg8: i64,
-            arg9: i32,
-            arg10: i32,
-            arg11: i32,
-            arg12: i64,
-            arg13: i64,
-            arg14: i64,
-            arg15: i64,
-            arg16: i64,
         ) -> i32;
         /// Closes a bus process and releases all associated resources
         pub fn bus_close(arg0: i32) -> i32;
         /// Invokes a call within a running bus process.
-        pub fn bus_invoke(
+        pub fn bus_call(
             arg0: i32,
-            arg1: i64,
-            arg2: i32,
+            arg1: i32,
+            arg2: i64,
             arg3: i64,
-            arg4: i64,
-            arg5: i32,
+            arg4: i32,
+            arg5: i64,
             arg6: i64,
             arg7: i64,
-            arg8: i64,
         ) -> i32;
-        /// Causes a fault on a particular call that was made
-        /// to this process from another process; where 'bid'
-        /// is the callering process context.
-        pub fn bus_fault(arg0: i32, arg1: i32) -> i32;
-        /// Closes a bus call based on its bus call handle
-        pub fn bus_drop(arg0: i32) -> i32;
+        /// Invokes a call within the context of another call
+        pub fn bus_subcall(
+            arg0: i32,
+            arg1: i32,
+            arg2: i64,
+            arg3: i64,
+            arg4: i32,
+            arg5: i64,
+            arg6: i64,
+            arg7: i64,
+        ) -> i32;
+        /// Polls for any outstanding events from a particular
+        /// bus process by its handle
+        pub fn bus_poll(arg0: i64, arg1: i64, arg2: i32, arg3: i64, arg4: i64, arg5: i64) -> i32;
         /// Replies to a call that was made to this process
         /// from another process; where 'cid' is the call context.
         /// This will may also drop the handle and release any
         /// associated resources (if keepalive is not set)
-        pub fn bus_reply(arg0: i32, arg1: i32, arg2: i64, arg3: i64) -> i32;
-        /// Invokes a callback within the calling process against
-        /// a particular bus call represented by 'cid'.
-        pub fn bus_callback(
-            arg0: i32,
-            arg1: i64,
-            arg2: i64,
-            arg3: i32,
-            arg4: i64,
-            arg5: i64,
-        ) -> i32;
-        /// Tells the operating system that this process is
-        /// now listening for bus calls on a particular topic
-        pub fn bus_listen(arg0: i64, arg1: i64, arg2: i64) -> i32;
-        /// Polls for any outstanding events from a particular
-        /// bus process by its handle
-        pub fn bus_poll(arg0: i64, arg1: i64, arg2: i64, arg3: i32, arg4: i64) -> i32;
-        /// Receives the next event data from the bus
-        pub fn bus_poll_data(
-            arg0: i64,
-            arg1: i64,
-            arg2: i64,
-            arg3: i64,
-            arg4: i64,
-            arg5: i64,
-            arg6: i64,
-        ) -> i32;
+        pub fn call_reply(arg0: i32, arg1: i32, arg2: i64, arg3: i64) -> i32;
+        /// Causes a fault on a particular call that was made
+        /// to this process from another process; where 'bid'
+        /// is the callering process context.
+        pub fn call_fault(arg0: i32, arg1: i32);
+        /// Closes a bus call based on its bus call handle
+        pub fn call_close(arg0: i32);
         /// Connects to a websocket at a particular network URL
         pub fn ws_connect(arg0: i64, arg1: i64, arg2: i64) -> i32;
         /// Makes a HTTP request to a remote web resource and
