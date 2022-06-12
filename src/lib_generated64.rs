@@ -599,6 +599,19 @@ pub struct OptionCid {
     pub u: OptionCidU,
 }
 
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union OptionFdU {
+    pub none: u8,
+    pub some: Fd,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct OptionFd {
+    pub tag: u8,
+    pub u: OptionFdU,
+}
+
 #[repr(transparent)]
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Bool(u8);
@@ -1229,14 +1242,16 @@ impl From<u8> for StdioMode {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone)]
 pub struct ProcessHandles {
+    /// Handle that represents the process
+    pub bid: Bid,
     /// File handle for STDIN
-    pub stdin: Fd,
+    pub stdin: OptionFd,
     /// File handle for STDOUT
-    pub stdout: Fd,
+    pub stdout: OptionFd,
     /// File handle for STDERR
-    pub stderr: Fd,
+    pub stderr: OptionFd,
 }
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
