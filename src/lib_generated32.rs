@@ -4110,6 +4110,63 @@ pub unsafe fn thread_parallelism() -> Result<Size, Errno> {
     }
 }
 
+/// Wait for a futex_wake operation to wake us.
+/// Returns with EINVAL if the futex doesn't hold the expected value.
+/// Returns false on timeout, and true in all other cases.
+///
+/// ## Parameters
+///
+/// * `futex` - Memory location that holds the value that will be checked
+/// * `expected` - Expected value that should be currently held at the memory location
+/// * `timeout` - Timeout should the futex not be triggered in the allocated time
+pub unsafe fn futex_wait(
+    futex: *mut u32,
+    expected: u32,
+    timeout: *const OptionTimestamp,
+) -> Result<Bool, Errno> {
+    let mut rp0 = MaybeUninit::<Bool>::uninit();
+    let ret = wasix_32v1::futex_wait(
+        futex as i32,
+        expected as i32,
+        timeout as i32,
+        rp0.as_mut_ptr() as i32,
+    );
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Bool)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Wake up one thread that's blocked on futex_wait on this futex.
+/// Returns true if this actually woke up such a thread,
+/// or false if no thread was waiting on this futex.
+///
+/// ## Parameters
+///
+/// * `futex` - Memory location that will be incremented by one
+pub unsafe fn futex_wake(futex: *mut u32) -> Result<Bool, Errno> {
+    let mut rp0 = MaybeUninit::<Bool>::uninit();
+    let ret = wasix_32v1::futex_wake(futex as i32, rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Bool)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Wake up all threads that are waiting on futex_wait on this futex.
+///
+/// ## Parameters
+///
+/// * `futex` - Memory location that will be set to zero
+pub unsafe fn futex_wake_all(futex: *mut u32) -> Result<Bool, Errno> {
+    let mut rp0 = MaybeUninit::<Bool>::uninit();
+    let ret = wasix_32v1::futex_wake_all(futex as i32, rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Bool)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
 /// Returns the handle of the current process
 pub unsafe fn getpid() -> Result<Pid, Errno> {
     let mut rp0 = MaybeUninit::<Pid>::uninit();
@@ -5449,6 +5506,16 @@ pub mod wasix_32v1 {
         /// Returns the available parallelism which is normally the
         /// number of available cores that can run concurrently
         pub fn thread_parallelism(arg0: i32) -> i32;
+        /// Wait for a futex_wake operation to wake us.
+        /// Returns with EINVAL if the futex doesn't hold the expected value.
+        /// Returns false on timeout, and true in all other cases.
+        pub fn futex_wait(arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> i32;
+        /// Wake up one thread that's blocked on futex_wait on this futex.
+        /// Returns true if this actually woke up such a thread,
+        /// or false if no thread was waiting on this futex.
+        pub fn futex_wake(arg0: i32, arg1: i32) -> i32;
+        /// Wake up all threads that are waiting on futex_wait on this futex.
+        pub fn futex_wake_all(arg0: i32, arg1: i32) -> i32;
         /// Returns the handle of the current process
         pub fn getpid(arg0: i32) -> i32;
         /// Terminates the current running thread, if this is the last thread then
