@@ -4143,7 +4143,7 @@ pub unsafe fn futex_wait(
 ///
 /// ## Parameters
 ///
-/// * `futex` - Memory location that will be incremented by one
+/// * `futex` - Memory location that holds a futex that others may be waiting on
 pub unsafe fn futex_wake(futex: *mut u32) -> Result<Bool, Errno> {
     let mut rp0 = MaybeUninit::<Bool>::uninit();
     let ret = wasix_64v1::futex_wake(futex as i64, rp0.as_mut_ptr() as i64);
@@ -4157,7 +4157,7 @@ pub unsafe fn futex_wake(futex: *mut u32) -> Result<Bool, Errno> {
 ///
 /// ## Parameters
 ///
-/// * `futex` - Memory location that will be set to zero
+/// * `futex` - Memory location that holds a futex that others may be waiting on
 pub unsafe fn futex_wake_all(futex: *mut u32) -> Result<Bool, Errno> {
     let mut rp0 = MaybeUninit::<Bool>::uninit();
     let ret = wasix_64v1::futex_wake_all(futex as i64, rp0.as_mut_ptr() as i64);
