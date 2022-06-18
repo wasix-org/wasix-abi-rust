@@ -4037,6 +4037,9 @@ pub unsafe fn chdir(path: &str) -> Result<(), Errno> {
 /// * `name` - Name of the function that will be invoked as a new thread which
 ///   will receive the user_data supplied
 ///   Function signature fn(u64)
+/// * `malloc` - Name of the function memory allocation function that allocates the
+///   stack frame
+///   Function signature fn(u64) -> u64
 /// * `user_data` - User data that will be supplied to the function when its called
 /// * `reactor` - Indicates if the function will operate as a reactor or
 ///   as a normal thread. Reactors will be repeatable called
@@ -4046,11 +4049,18 @@ pub unsafe fn chdir(path: &str) -> Result<(), Errno> {
 ///
 /// Returns the thread index of the newly created thread
 /// (indices always start from zero)
-pub unsafe fn thread_spawn(name: &str, user_data: u64, reactor: Bool) -> Result<Tid, Errno> {
+pub unsafe fn thread_spawn(
+    name: &str,
+    malloc: &str,
+    user_data: u64,
+    reactor: Bool,
+) -> Result<Tid, Errno> {
     let mut rp0 = MaybeUninit::<Tid>::uninit();
     let ret = wasix_32v1::thread_spawn(
         name.as_ptr() as i32,
         name.len() as i32,
+        malloc.as_ptr() as i32,
+        malloc.len() as i32,
         user_data as i64,
         reactor.0 as i32,
         rp0.as_mut_ptr() as i32,
@@ -5494,7 +5504,15 @@ pub mod wasix_32v1 {
         /// memory address space, file handles and main event loops.
         /// The function referenced by the fork call must be
         /// exported by the web assembly process.
-        pub fn thread_spawn(arg0: i32, arg1: i32, arg2: i64, arg3: i32, arg4: i32) -> i32;
+        pub fn thread_spawn(
+            arg0: i32,
+            arg1: i32,
+            arg2: i32,
+            arg3: i32,
+            arg4: i64,
+            arg5: i32,
+            arg6: i32,
+        ) -> i32;
         /// Sends the current thread to sleep for a period of time
         pub fn thread_sleep(arg0: i64) -> i32;
         /// Returns the index of the current thread
