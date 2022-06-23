@@ -585,7 +585,7 @@ pub struct OptionBid {
     pub u: OptionBidU,
 }
 
-pub type Cid = u32;
+pub type Cid = u64;
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub union OptionCidU {
@@ -4373,7 +4373,7 @@ pub unsafe fn bus_subcall(
 ) -> Result<Cid, BusError> {
     let mut rp0 = MaybeUninit::<Cid>::uninit();
     let ret = wasix_64v1::bus_subcall(
-        parent as i32,
+        parent as i64,
         keep_alive.0 as i32,
         topic.as_ptr() as i64,
         topic.len() as i64,
@@ -4439,7 +4439,7 @@ pub unsafe fn call_reply(
     buf: BufArray<'_>,
 ) -> Result<(), BusError> {
     let ret = wasix_64v1::call_reply(
-        cid as i32,
+        cid as i64,
         format.0 as i32,
         buf.as_ptr() as i64,
         buf.len() as i64,
@@ -4459,7 +4459,7 @@ pub unsafe fn call_reply(
 /// * `cid` - Handle of the call to raise a fault on
 /// * `fault` - Fault to be raised on the bus
 pub unsafe fn call_fault(cid: Cid, fault: BusError) {
-    wasix_64v1::call_fault(cid as i32, fault.0 as i32);
+    wasix_64v1::call_fault(cid as i64, fault.0 as i32);
 }
 
 /// Closes a bus call based on its bus call handle
@@ -4468,7 +4468,7 @@ pub unsafe fn call_fault(cid: Cid, fault: BusError) {
 ///
 /// * `cid` - Handle of the bus call handle to be dropped
 pub unsafe fn call_close(cid: Cid) {
-    wasix_64v1::call_close(cid as i32);
+    wasix_64v1::call_close(cid as i64);
 }
 
 /// Connects to a websocket at a particular network URL
@@ -5569,7 +5569,7 @@ pub mod wasix_64v1 {
         ) -> i32;
         /// Invokes a call within the context of another call
         pub fn bus_subcall(
-            arg0: i32,
+            arg0: i64,
             arg1: i32,
             arg2: i64,
             arg3: i64,
@@ -5585,13 +5585,13 @@ pub mod wasix_64v1 {
         /// from another process; where 'cid' is the call context.
         /// This will may also drop the handle and release any
         /// associated resources (if keepalive is not set)
-        pub fn call_reply(arg0: i32, arg1: i32, arg2: i64, arg3: i64) -> i32;
+        pub fn call_reply(arg0: i64, arg1: i32, arg2: i64, arg3: i64) -> i32;
         /// Causes a fault on a particular call that was made
         /// to this process from another process; where 'bid'
         /// is the callering process context.
-        pub fn call_fault(arg0: i32, arg1: i32);
+        pub fn call_fault(arg0: i64, arg1: i32);
         /// Closes a bus call based on its bus call handle
-        pub fn call_close(arg0: i32);
+        pub fn call_close(arg0: i64);
         /// Connects to a websocket at a particular network URL
         pub fn ws_connect(arg0: i64, arg1: i64, arg2: i64) -> i32;
         /// Makes a HTTP request to a remote web resource and
