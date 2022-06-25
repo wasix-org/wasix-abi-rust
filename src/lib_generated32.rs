@@ -4405,12 +4405,14 @@ pub unsafe fn bus_subcall(
 pub unsafe fn bus_poll(
     timeout: Timestamp,
     events: *mut BusEvent,
+    nevents: Size,
     malloc: &str,
 ) -> Result<Size, BusError> {
     let mut rp0 = MaybeUninit::<Size>::uninit();
     let ret = wasix_32v1::bus_poll(
         timeout as i64,
         events as i32,
+        nevents as i32,
         malloc.as_ptr() as i32,
         malloc.len() as i32,
         rp0.as_mut_ptr() as i32,
@@ -5578,7 +5580,7 @@ pub mod wasix_32v1 {
         ) -> i32;
         /// Polls for any outstanding events from a particular
         /// bus process by its handle
-        pub fn bus_poll(arg0: i64, arg1: i32, arg2: i32, arg3: i32, arg4: i32) -> i32;
+        pub fn bus_poll(arg0: i64, arg1: i32, arg2: i32, arg3: i32, arg4: i32, arg5: i32) -> i32;
         /// Replies to a call that was made to this process
         /// from another process; where 'cid' is the call context.
         /// This will may also drop the handle and release any
