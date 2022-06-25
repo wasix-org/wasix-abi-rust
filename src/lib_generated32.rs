@@ -8,6 +8,14 @@ pub type Pointersize = usize;
 pub type Size = usize;
 pub type Filesize = u64;
 pub type Timestamp = u64;
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct Hash {
+    /// First set of 64 bits
+    pub b0: u64,
+    /// second set of 64 bits
+    pub b1: u64,
+}
 #[repr(transparent)]
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Clockid(u32);
@@ -1332,16 +1340,10 @@ pub struct BusEventCall {
     pub cid: Cid,
     /// Format of the data on the bus
     pub format: BusDataFormat,
-    /// The topic that describes the event that happened
-    /// (note: this buffer must NOT be freed - it will be reused on subsequent calls)
-    pub topic: *mut u8,
-    /// The size of the topic name
-    pub topic_len: Pointersize,
-    /// The buffer where event data is stored
-    /// (note: this buffer must be freed by the receiver)
-    pub buf: *mut u8,
-    /// The amount of data held in the buffer
-    pub buf_len: Pointersize,
+    /// Hash of the topic name that identifies this operation
+    pub topic_hash: Hash,
+    /// File descriptor that holds the event data
+    pub fd: Fd,
 }
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -1350,11 +1352,8 @@ pub struct BusEventResult {
     pub format: BusDataFormat,
     /// Handle of the call
     pub cid: Cid,
-    /// The buffer where event data is stored
-    /// (note: this buffer must be freed by the receiver)
-    pub buf: *mut u8,
-    /// The amount of data held in the buffer
-    pub buf_len: Pointersize,
+    /// File descriptor that holds the event data
+    pub fd: Fd,
 }
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
