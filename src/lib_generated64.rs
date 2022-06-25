@@ -4316,13 +4316,13 @@ pub unsafe fn bus_close(bid: Bid) -> Result<(), BusError> {
 /// * `keep_alive` - Causes the call handle to remain open even when A
 ///   reply is received. It is then the  callers responsibility
 ///   to invoke 'bus_drop' when they are finished with the call
-/// * `topic` - Topic that describes the type of call to made
+/// * `topic_hash` - Topic hash that describes the type of call to made
 /// * `format` - Format of the data pushed onto the bus
 /// * `buf` - The buffer where data to be transmitted is stored
 pub unsafe fn bus_call(
     bid: Bid,
     keep_alive: Bool,
-    topic: &str,
+    topic_hash: *const Hash,
     format: BusDataFormat,
     buf: BufArray<'_>,
 ) -> Result<Cid, BusError> {
@@ -4330,8 +4330,7 @@ pub unsafe fn bus_call(
     let ret = wasix_64v1::bus_call(
         bid as i32,
         keep_alive.0 as i32,
-        topic.as_ptr() as i64,
-        topic.len() as i64,
+        topic_hash as i64,
         format.0 as i32,
         buf.as_ptr() as i64,
         buf.len() as i64,
@@ -4351,13 +4350,13 @@ pub unsafe fn bus_call(
 /// * `keep_alive` - Causes the call handle to remain open even when A
 ///   reply is received. It is then the  callers responsibility
 ///   to invoke 'bus_drop' when they are finished with the call
-/// * `topic` - Topic that describes the type of call to made
+/// * `topic_hash` - Topic hash that describes the type of call to made
 /// * `format` - Format of the data pushed onto the bus
 /// * `buf` - The buffer where data to be transmitted is stored
 pub unsafe fn bus_subcall(
     parent: Cid,
     keep_alive: Bool,
-    topic: &str,
+    topic_hash: *const Hash,
     format: BusDataFormat,
     buf: BufArray<'_>,
 ) -> Result<Cid, BusError> {
@@ -4365,8 +4364,7 @@ pub unsafe fn bus_subcall(
     let ret = wasix_64v1::bus_subcall(
         parent as i64,
         keep_alive.0 as i32,
-        topic.as_ptr() as i64,
-        topic.len() as i64,
+        topic_hash as i64,
         format.0 as i32,
         buf.as_ptr() as i64,
         buf.len() as i64,
@@ -5546,22 +5544,20 @@ pub mod wasix_64v1 {
             arg0: i32,
             arg1: i32,
             arg2: i64,
-            arg3: i64,
-            arg4: i32,
+            arg3: i32,
+            arg4: i64,
             arg5: i64,
             arg6: i64,
-            arg7: i64,
         ) -> i32;
         /// Invokes a call within the context of another call
         pub fn bus_subcall(
             arg0: i64,
             arg1: i32,
             arg2: i64,
-            arg3: i64,
-            arg4: i32,
+            arg3: i32,
+            arg4: i64,
             arg5: i64,
             arg6: i64,
-            arg7: i64,
         ) -> i32;
         /// Polls for any outstanding events from a particular
         /// bus process by its handle
