@@ -4097,11 +4097,9 @@ pub unsafe fn thread_local_create(user_data: u64) -> Result<TlKey, Errno> {
 ///
 /// ## Parameters
 ///
-/// * `user_data` - User data that will be passed to the destructor
-///   when the thread variable goes out of scope
 /// * `key` - Thread key that was previously created
-pub unsafe fn thread_local_destroy(user_data: u64, key: TlKey) -> Result<(), Errno> {
-    let ret = wasix_64v1::thread_local_destroy(user_data as i64, key as i32);
+pub unsafe fn thread_local_destroy(key: TlKey) -> Result<(), Errno> {
+    let ret = wasix_64v1::thread_local_destroy(key as i32);
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
@@ -5548,7 +5546,7 @@ pub mod wasix_64v1 {
         /// then it will be invoked when the thread goes out of scope and dies.
         pub fn thread_local_create(arg0: i64, arg1: i64) -> i32;
         /// Destroys a thread local variable
-        pub fn thread_local_destroy(arg0: i64, arg1: i32) -> i32;
+        pub fn thread_local_destroy(arg0: i32) -> i32;
         /// Sets the value of a thread local variable
         pub fn thread_local_set(arg0: i32, arg1: i64) -> i32;
         /// Gets the value of a thread local variable
