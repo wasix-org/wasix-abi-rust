@@ -8,6 +8,8 @@ pub type Pointersize = usize;
 pub type Size = usize;
 pub type Filesize = u64;
 pub type Timestamp = u64;
+pub type TlKey = u32;
+pub type TlVal = u64;
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct Hash {
@@ -4028,8 +4030,7 @@ pub unsafe fn chdir(path: &str) -> Result<(), Errno> {
 
 /// Creates a new thread by spawning that shares the same
 /// memory address space, file handles and main event loops.
-/// The function referenced by the fork call must be
-/// exported by the web assembly process.
+/// The web assembly process must export function named '_start_thread'
 ///
 /// ## Parameters
 ///
@@ -4071,6 +4072,64 @@ pub unsafe fn thread_id() -> Result<Tid, Errno> {
     let ret = wasix_64v1::thread_id(rp0.as_mut_ptr() as i64);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Tid)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Create a thread local variable
+/// If The web assembly process exports function named '_thread_local_destroy'
+/// then it will be invoked when the thread goes out of scope and dies.
+///
+/// ## Parameters
+///
+/// * `user_data` - User data that will be passed to the destructor
+///   when the thread variable goes out of scope
+pub unsafe fn thread_local_create(user_data: u64) -> Result<TlKey, Errno> {
+    let mut rp0 = MaybeUninit::<TlKey>::uninit();
+    let ret = wasix_64v1::thread_local_create(user_data as i64, rp0.as_mut_ptr() as i64);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const TlKey)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Destroys a thread local variable
+///
+/// ## Parameters
+///
+/// * `key` - Thread key that was previously created
+pub unsafe fn thread_local_destroy(key: TlKey) -> Result<(), Errno> {
+    let ret = wasix_64v1::thread_local_destroy(key as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Sets the value of a thread local variable
+///
+/// ## Parameters
+///
+/// * `key` - Thread key that this local variable will be associated with
+/// * `val` - Value to be set for the thread local variable
+pub unsafe fn thread_local_set(key: TlKey, val: TlVal) -> Result<(), Errno> {
+    let ret = wasix_64v1::thread_local_set(key as i32, val as i64);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Gets the value of a thread local variable
+///
+/// ## Parameters
+///
+/// * `key` - Thread key that this local variable that was previous set
+pub unsafe fn thread_local_get(key: TlKey) -> Result<TlVal, Errno> {
+    let mut rp0 = MaybeUninit::<TlVal>::uninit();
+    let ret = wasix_64v1::thread_local_get(key as i32, rp0.as_mut_ptr() as i64);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const TlVal)),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -5475,14 +5534,23 @@ pub mod wasix_64v1 {
         pub fn chdir(arg0: i64, arg1: i64) -> i32;
         /// Creates a new thread by spawning that shares the same
         /// memory address space, file handles and main event loops.
-        /// The function referenced by the fork call must be
-        /// exported by the web assembly process.
+        /// The web assembly process must export function named '_start_thread'
         pub fn thread_spawn(arg0: i64, arg1: i32, arg2: i64) -> i32;
         /// Sends the current thread to sleep for a period of time
         pub fn thread_sleep(arg0: i64) -> i32;
         /// Returns the index of the current thread
         /// (threads indices are sequencial from zero)
         pub fn thread_id(arg0: i64) -> i32;
+        /// Create a thread local variable
+        /// If The web assembly process exports function named '_thread_local_destroy'
+        /// then it will be invoked when the thread goes out of scope and dies.
+        pub fn thread_local_create(arg0: i64, arg1: i64) -> i32;
+        /// Destroys a thread local variable
+        pub fn thread_local_destroy(arg0: i32) -> i32;
+        /// Sets the value of a thread local variable
+        pub fn thread_local_set(arg0: i32, arg1: i64) -> i32;
+        /// Gets the value of a thread local variable
+        pub fn thread_local_get(arg0: i32, arg1: i64) -> i32;
         /// Joins this thread with another thread, blocking this
         /// one until the other finishes
         pub fn thread_join(arg0: i32) -> i32;
