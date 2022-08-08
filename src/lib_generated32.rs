@@ -4372,11 +4372,15 @@ pub unsafe fn bus_close(bid: Bid) -> Result<(), BusError> {
 /// ## Parameters
 ///
 /// * `bid` - Handle of the bus process to invoke the call within
+/// * `keep_alive` - Causes the call handle to remain open even when A
+///   reply is received. It is then the  callers responsibility
+///   to invoke 'bus_drop' when they are finished with the call
 /// * `topic_hash` - Topic hash that describes the type of call to made
 /// * `format` - Format of the data pushed onto the bus
 /// * `buf` - The buffer where data to be transmitted is stored
 pub unsafe fn bus_call(
     bid: Bid,
+    keep_alive: Bool,
     topic_hash: *const Hash,
     format: BusDataFormat,
     buf: BufArray<'_>,
@@ -4384,6 +4388,7 @@ pub unsafe fn bus_call(
     let mut rp0 = MaybeUninit::<Cid>::uninit();
     let ret = wasix_32v1::bus_call(
         bid as i32,
+        keep_alive.0 as i32,
         topic_hash as i32,
         format.0 as i32,
         buf.as_ptr() as i32,
@@ -4401,11 +4406,15 @@ pub unsafe fn bus_call(
 /// ## Parameters
 ///
 /// * `parent` - Parent bus call that this is related to
+/// * `keep_alive` - Causes the call handle to remain open even when A
+///   reply is received. It is then the  callers responsibility
+///   to invoke 'bus_drop' when they are finished with the call
 /// * `topic_hash` - Topic hash that describes the type of call to made
 /// * `format` - Format of the data pushed onto the bus
 /// * `buf` - The buffer where data to be transmitted is stored
 pub unsafe fn bus_subcall(
     parent: Cid,
+    keep_alive: Bool,
     topic_hash: *const Hash,
     format: BusDataFormat,
     buf: BufArray<'_>,
@@ -4413,6 +4422,7 @@ pub unsafe fn bus_subcall(
     let mut rp0 = MaybeUninit::<Cid>::uninit();
     let ret = wasix_32v1::bus_subcall(
         parent as i64,
+        keep_alive.0 as i32,
         topic_hash as i32,
         format.0 as i32,
         buf.as_ptr() as i32,
@@ -5598,10 +5608,25 @@ pub mod wasix_32v1 {
         /// Closes a bus process and releases all associated resources
         pub fn bus_close(arg0: i32) -> i32;
         /// Invokes a call within a running bus process.
-        pub fn bus_call(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32, arg5: i32) -> i32;
+        pub fn bus_call(
+            arg0: i32,
+            arg1: i32,
+            arg2: i32,
+            arg3: i32,
+            arg4: i32,
+            arg5: i32,
+            arg6: i32,
+        ) -> i32;
         /// Invokes a call within the context of another call
-        pub fn bus_subcall(arg0: i64, arg1: i32, arg2: i32, arg3: i32, arg4: i32, arg5: i32)
-            -> i32;
+        pub fn bus_subcall(
+            arg0: i64,
+            arg1: i32,
+            arg2: i32,
+            arg3: i32,
+            arg4: i32,
+            arg5: i32,
+            arg6: i32,
+        ) -> i32;
         /// Polls for any outstanding events from a particular
         /// bus process by its handle
         pub fn bus_poll(arg0: i64, arg1: i32, arg2: i32, arg3: i32) -> i32;
