@@ -237,6 +237,8 @@ pub const ERRNO_TXTBSY: Errno = Errno(74);
 pub const ERRNO_XDEV: Errno = Errno(75);
 /// Extension: Capabilities insufficient.
 pub const ERRNO_NOTCAPABLE: Errno = Errno(76);
+/// The socket has already been shutdown.
+pub const ERRNO_SHUTDOWN: Errno = Errno(77);
 impl Errno {
     pub const fn raw(&self) -> u16 {
         self.0
@@ -321,6 +323,7 @@ impl Errno {
             74 => "TXTBSY",
             75 => "XDEV",
             76 => "NOTCAPABLE",
+            77 => "SHUTDOWN",
             _ => unsafe { core::hint::unreachable_unchecked() },
         }
     }
@@ -403,6 +406,7 @@ impl Errno {
             74 => "Text file busy.",
             75 => "Cross-device link.",
             76 => "Extension: Capabilities insufficient.",
+            77 => "The socket has already been shutdown.",
             _ => unsafe { core::hint::unreachable_unchecked() },
         }
     }
@@ -3214,6 +3218,25 @@ pub unsafe fn clock_time_get(id: Clockid, precision: Timestamp) -> Result<Timest
     }
 }
 
+/// Sets the time value of a clock.
+/// Note: This is similar to `clock_settime` in POSIX.
+///
+/// ## Parameters
+///
+/// * `id` - The clock for which to set the time.
+/// * `timestamp` - The value of the time to be set.
+///
+/// ## Return
+///
+/// The time value of the clock.
+pub unsafe fn clock_time_set(id: Clockid, timestamp: Timestamp) -> Result<(), Errno> {
+    let ret = wasix_32v1::clock_time_set(id.0 as i32, timestamp as i64);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
 /// Provide file advisory information on a file descriptor.
 /// Note: This is similar to `posix_fadvise` in POSIX.
 ///
@@ -4220,6 +4243,20 @@ pub unsafe fn futex_wake_all(futex: *mut u32) -> Result<Bool, Errno> {
 pub unsafe fn getpid() -> Result<Pid, Errno> {
     let mut rp0 = MaybeUninit::<Pid>::uninit();
     let ret = wasix_32v1::getpid(rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Pid)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Returns the parent handle of a particular process
+///
+/// ## Parameters
+///
+/// * `pid` - Handle of the process to get the parent handle for
+pub unsafe fn getppid(pid: Pid) -> Result<Pid, Errno> {
+    let mut rp0 = MaybeUninit::<Pid>::uninit();
+    let ret = wasix_32v1::getppid(pid as i32, rp0.as_mut_ptr() as i32);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Pid)),
         _ => Err(Errno(ret as u16)),
@@ -5340,6 +5377,9 @@ pub mod wasix_32v1 {
         /// Return the time value of a clock.
         /// Note: This is similar to `clock_gettime` in POSIX.
         pub fn clock_time_get(arg0: i32, arg1: i64, arg2: i32) -> i32;
+        /// Sets the time value of a clock.
+        /// Note: This is similar to `clock_settime` in POSIX.
+        pub fn clock_time_set(arg0: i32, arg1: i64) -> i32;
         /// Provide file advisory information on a file descriptor.
         /// Note: This is similar to `posix_fadvise` in POSIX.
         pub fn fd_advise(arg0: i32, arg1: i64, arg2: i64, arg3: i32) -> i32;
@@ -5559,6 +5599,8 @@ pub mod wasix_32v1 {
         pub fn futex_wake_all(arg0: i32, arg1: i32) -> i32;
         /// Returns the handle of the current process
         pub fn getpid(arg0: i32) -> i32;
+        /// Returns the parent handle of a particular process
+        pub fn getppid(arg0: i32, arg1: i32) -> i32;
         /// Terminates the current running thread, if this is the last thread then
         /// the process will also exit with the specified exit code. An exit code
         /// of 0 indicates successful termination of the thread. The meanings of
