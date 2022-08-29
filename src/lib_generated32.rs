@@ -237,7 +237,7 @@ pub const ERRNO_TXTBSY: Errno = Errno(74);
 pub const ERRNO_XDEV: Errno = Errno(75);
 /// Extension: Capabilities insufficient.
 pub const ERRNO_NOTCAPABLE: Errno = Errno(76);
-/// The socket has already been shutdown.
+/// Cannot send after socket shutdown.
 pub const ERRNO_SHUTDOWN: Errno = Errno(77);
 impl Errno {
     pub const fn raw(&self) -> u16 {
@@ -406,7 +406,7 @@ impl Errno {
             74 => "Text file busy.",
             75 => "Cross-device link.",
             76 => "Extension: Capabilities insufficient.",
-            77 => "The socket has already been shutdown.",
+            77 => "Cannot send after socket shutdown.",
             _ => unsafe { core::hint::unreachable_unchecked() },
         }
     }
@@ -580,6 +580,19 @@ pub union OptionTimestampU {
 pub struct OptionTimestamp {
     pub tag: u8,
     pub u: OptionTimestampU,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union OptionHashU {
+    pub none: u8,
+    pub some: Hash,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct OptionHash {
+    pub tag: u8,
+    pub u: OptionHashU,
 }
 
 pub type Fd = u32;
@@ -4058,6 +4071,7 @@ pub unsafe fn chdir(path: &str) -> Result<(), Errno> {
 /// ## Parameters
 ///
 /// * `user_data` - User data that will be supplied to the function when its called
+/// * `stack_base` - The base address of the stack allocated for this thread
 /// * `reactor` - Indicates if the function will operate as a reactor or
 ///   as a normal thread. Reactors will be repeatable called
 ///   whenever IO work is available to be processed.
@@ -4066,9 +4080,14 @@ pub unsafe fn chdir(path: &str) -> Result<(), Errno> {
 ///
 /// Returns the thread index of the newly created thread
 /// (indices always start from zero)
-pub unsafe fn thread_spawn(user_data: u64, reactor: Bool) -> Result<Tid, Errno> {
+pub unsafe fn thread_spawn(user_data: u64, stack_base: u64, reactor: Bool) -> Result<Tid, Errno> {
     let mut rp0 = MaybeUninit::<Tid>::uninit();
-    let ret = wasix_32v1::thread_spawn(user_data as i64, reactor.0 as i32, rp0.as_mut_ptr() as i32);
+    let ret = wasix_32v1::thread_spawn(
+        user_data as i64,
+        stack_base as i64,
+        reactor.0 as i32,
+        rp0.as_mut_ptr() as i32,
+    );
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Tid)),
         _ => Err(Errno(ret as u16)),
@@ -4273,6 +4292,55 @@ pub unsafe fn getppid(pid: Pid) -> Result<Pid, Errno> {
 /// * `rval` - The exit code returned by the process.
 pub unsafe fn thread_exit(rval: Exitcode) {
     wasix_32v1::thread_exit(rval as i32);
+}
+
+/// Creates a snapshot of the current stack which allows it to be restored
+/// later using its stack hash.
+/// This function signature must exactly match the `stack_restore` function
+/// in order for the trampoline to work properly.
+/// This function will manipulate the __stackpointer
+///
+/// ## Parameters
+///
+/// * `hash` - Hash of the stack that the current thread will be restored to
+pub unsafe fn stack_save(hash: *mut OptionHash) {
+    wasix_32v1::stack_save(hash as i32);
+}
+
+/// Restores the current stack to a previous stack described by its
+/// stack hash.
+/// This function signature must exactly match the `stack_save` function
+/// in order for the trampoline to work properly.
+/// This function will manipulate the __stackpointer
+///
+/// ## Parameters
+///
+/// * `hash` - Hash of the stack we will be jumping too - or none if we do not jump.
+pub unsafe fn stack_restore(hash: *mut OptionHash) {
+    wasix_32v1::stack_restore(hash as i32);
+}
+
+/// Destroys a stack snapshot that was previously made using the `stack_save`
+/// system call - stack hashes are reference countered thus if the same snapshot
+/// is taken the memory remains consistent.
+///
+/// ## Parameters
+///
+/// * `hash` - Hash of the stack that the current thread will be forgetten
+pub unsafe fn stack_forget(hash: *const Hash) {
+    wasix_32v1::stack_forget(hash as i32);
+}
+
+/// Forks the current process into a new subprocess. If the function
+/// returns a zero then its the new subprocess. If it returns a positive
+/// number then its the current process and the $pid represents the child.
+pub unsafe fn fork() -> Result<Pid, Errno> {
+    let mut rp0 = MaybeUninit::<Pid>::uninit();
+    let ret = wasix_32v1::fork(rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Pid)),
+        _ => Err(Errno(ret as u16)),
+    }
 }
 
 /// Spawns a new process within the context of this machine
@@ -5565,7 +5633,7 @@ pub mod wasix_32v1 {
         /// Creates a new thread by spawning that shares the same
         /// memory address space, file handles and main event loops.
         /// The web assembly process must export function named '_start_thread'
-        pub fn thread_spawn(arg0: i64, arg1: i32, arg2: i32) -> i32;
+        pub fn thread_spawn(arg0: i64, arg1: i64, arg2: i32, arg3: i32) -> i32;
         /// Sends the current thread to sleep for a period of time
         pub fn thread_sleep(arg0: i64) -> i32;
         /// Returns the index of the current thread
@@ -5606,6 +5674,26 @@ pub mod wasix_32v1 {
         /// of 0 indicates successful termination of the thread. The meanings of
         /// other values is dependent on the environment.
         pub fn thread_exit(arg0: i32) -> !;
+        /// Creates a snapshot of the current stack which allows it to be restored
+        /// later using its stack hash.
+        /// This function signature must exactly match the `stack_restore` function
+        /// in order for the trampoline to work properly.
+        /// This function will manipulate the __stackpointer
+        pub fn stack_save(arg0: i32);
+        /// Restores the current stack to a previous stack described by its
+        /// stack hash.
+        /// This function signature must exactly match the `stack_save` function
+        /// in order for the trampoline to work properly.
+        /// This function will manipulate the __stackpointer
+        pub fn stack_restore(arg0: i32);
+        /// Destroys a stack snapshot that was previously made using the `stack_save`
+        /// system call - stack hashes are reference countered thus if the same snapshot
+        /// is taken the memory remains consistent.
+        pub fn stack_forget(arg0: i32);
+        /// Forks the current process into a new subprocess. If the function
+        /// returns a zero then its the new subprocess. If it returns a positive
+        /// number then its the current process and the $pid represents the child.
+        pub fn fork(arg0: i32) -> i32;
         /// Spawns a new process within the context of this machine
         pub fn process_spawn(
             arg0: i32,
