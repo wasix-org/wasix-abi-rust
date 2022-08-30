@@ -6,11 +6,20 @@ use core::fmt;
 use core::mem::MaybeUninit;
 pub type Pointersize = usize;
 pub type Size = usize;
+pub type Longsize = u64;
 pub type Filesize = u64;
 pub type Timestamp = u64;
 pub type TlKey = u32;
 pub type TlVal = u64;
 pub type ShortHash = u64;
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct StackSnapshot {
+    /// Offset into the stack (effectively a normalized stack pointer)
+    pub offset: u32,
+    /// Hash of the used portion of the stack
+    pub hash: u64,
+}
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct Hash {
@@ -4301,11 +4310,19 @@ pub unsafe fn thread_exit(rval: Exitcode) {
 /// in order for the trampoline to work properly.
 /// This function will manipulate the __stackpointer
 ///
+/// ## Parameters
+///
+/// * `snapshot` - Reference to the stack snapshot that will be filled
+/// * `persist` - Flag that indicates if the stack should be persisted
+/// * `val` - Value to be returned when the stack is restored
+///   (if zero this will change to one)
+///
 /// ## Return
 ///
-/// Hash of the stack which can be used as a restoration pointer
-pub unsafe fn stack_save() -> ShortHash {
-    let ret = wasix_32v1::stack_save();
+/// Result of the stack save operation
+/// (zero upon registration and none-zero after restoration)
+pub unsafe fn stack_save(snapshot: *mut StackSnapshot, persist: Bool, val: Longsize) -> Longsize {
+    let ret = wasix_32v1::stack_save(snapshot as i32, persist.0 as i32, val as i64);
     ret as u64
 }
 
@@ -4317,27 +4334,20 @@ pub unsafe fn stack_save() -> ShortHash {
 ///
 /// ## Parameters
 ///
-/// * `hash` - Hash of the stack we will be jumping too - zero indicates no jump
-///
-/// ## Return
-///
-/// This function will also return zero however it will either return
-/// it from the point of the previous stack save or from here if the
-/// stack could not be identified
-pub unsafe fn stack_restore(hash: ShortHash) -> ShortHash {
-    let ret = wasix_32v1::stack_restore(hash as i64);
-    ret as u64
+/// * `snapshot` - Reference to the stack snapshot that will be restored
+pub unsafe fn stack_restore(snapshot: *const StackSnapshot) {
+    wasix_32v1::stack_restore(snapshot as i32);
 }
 
-/// Destroys a stack snapshot that was previously made using the `stack_save`
+/// Destroys a persisted stack snapshot that was previously made using the `stack_save`
 /// system call - stack hashes are reference countered thus if the same snapshot
 /// is taken the memory remains consistent.
 ///
 /// ## Parameters
 ///
-/// * `hash` - Hash of a previously saved stack that will be forgotten
-pub unsafe fn stack_forget(hash: ShortHash) {
-    wasix_32v1::stack_forget(hash as i64);
+/// * `snapshot` - Reference to the stack snapshot that will be forgotten
+pub unsafe fn stack_forget(snapshot: *const StackSnapshot) {
+    wasix_32v1::stack_forget(snapshot as i32);
 }
 
 /// Forks the current process into a new subprocess. If the function
@@ -5688,17 +5698,17 @@ pub mod wasix_32v1 {
         /// This function signature must exactly match the `stack_restore` function
         /// in order for the trampoline to work properly.
         /// This function will manipulate the __stackpointer
-        pub fn stack_save() -> i64;
+        pub fn stack_save(arg0: i32, arg1: i32, arg2: i64) -> i64;
         /// Restores the current stack to a previous stack described by its
         /// stack hash.
         /// This function signature must exactly match the `stack_save` function
         /// in order for the trampoline to work properly.
         /// This function will manipulate the __stackpointer
-        pub fn stack_restore(arg0: i64) -> i64;
-        /// Destroys a stack snapshot that was previously made using the `stack_save`
+        pub fn stack_restore(arg0: i32);
+        /// Destroys a persisted stack snapshot that was previously made using the `stack_save`
         /// system call - stack hashes are reference countered thus if the same snapshot
         /// is taken the memory remains consistent.
-        pub fn stack_forget(arg0: i64);
+        pub fn stack_forget(arg0: i32);
         /// Forks the current process into a new subprocess. If the function
         /// returns a zero then its the new subprocess. If it returns a positive
         /// number then its the current process and the $pid represents the child.
