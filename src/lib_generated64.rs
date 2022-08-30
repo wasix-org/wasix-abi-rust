@@ -10,6 +10,7 @@ pub type Filesize = u64;
 pub type Timestamp = u64;
 pub type TlKey = u32;
 pub type TlVal = u64;
+pub type ShortHash = u64;
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct Hash {
@@ -4300,11 +4301,12 @@ pub unsafe fn thread_exit(rval: Exitcode) {
 /// in order for the trampoline to work properly.
 /// This function will manipulate the __stackpointer
 ///
-/// ## Parameters
+/// ## Return
 ///
-/// * `hash` - Hash of the stack that the current thread will be restored to
-pub unsafe fn stack_save(hash: *mut OptionHash) {
-    wasix_64v1::stack_save(hash as i64);
+/// Hash of the stack which can be used as a restoration pointer
+pub unsafe fn stack_save() -> ShortHash {
+    let ret = wasix_64v1::stack_save();
+    ret as u64
 }
 
 /// Restores the current stack to a previous stack described by its
@@ -4315,9 +4317,16 @@ pub unsafe fn stack_save(hash: *mut OptionHash) {
 ///
 /// ## Parameters
 ///
-/// * `hash` - Hash of the stack we will be jumping too - or none if we do not jump.
-pub unsafe fn stack_restore(hash: *mut OptionHash) {
-    wasix_64v1::stack_restore(hash as i64);
+/// * `hash` - Hash of the stack we will be jumping too - zero indicates no jump
+///
+/// ## Return
+///
+/// This function will also return zero however it will either return
+/// it from the point of the previous stack save or from here if the
+/// stack could not be identified
+pub unsafe fn stack_restore(hash: ShortHash) -> ShortHash {
+    let ret = wasix_64v1::stack_restore(hash as i64);
+    ret as u64
 }
 
 /// Destroys a stack snapshot that was previously made using the `stack_save`
@@ -4326,8 +4335,8 @@ pub unsafe fn stack_restore(hash: *mut OptionHash) {
 ///
 /// ## Parameters
 ///
-/// * `hash` - Hash of the stack that the current thread will be forgetten
-pub unsafe fn stack_forget(hash: *const Hash) {
+/// * `hash` - Hash of a previously saved stack that will be forgotten
+pub unsafe fn stack_forget(hash: ShortHash) {
     wasix_64v1::stack_forget(hash as i64);
 }
 
@@ -5679,13 +5688,13 @@ pub mod wasix_64v1 {
         /// This function signature must exactly match the `stack_restore` function
         /// in order for the trampoline to work properly.
         /// This function will manipulate the __stackpointer
-        pub fn stack_save(arg0: i64);
+        pub fn stack_save() -> i64;
         /// Restores the current stack to a previous stack described by its
         /// stack hash.
         /// This function signature must exactly match the `stack_save` function
         /// in order for the trampoline to work properly.
         /// This function will manipulate the __stackpointer
-        pub fn stack_restore(arg0: i64);
+        pub fn stack_restore(arg0: i64) -> i64;
         /// Destroys a stack snapshot that was previously made using the `stack_save`
         /// system call - stack hashes are reference countered thus if the same snapshot
         /// is taken the memory remains consistent.
