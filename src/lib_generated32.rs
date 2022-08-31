@@ -15,14 +15,12 @@ pub type ShortHash = u64;
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct StackSnapshot {
-    /// Offset into the execution host stack
-    pub host_offset: u32,
-    /// Hash of the execution host stack
-    pub host_hash: u64,
     /// Offset into the execution memory stack
     pub memory_offset: u32,
-    /// Hash of the execution memory stack
-    pub memory_hash: u64,
+    /// Offset into the execution host stack
+    pub host_offset: u32,
+    /// Hash of both the memory and host stacks
+    pub hash: u64,
 }
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
