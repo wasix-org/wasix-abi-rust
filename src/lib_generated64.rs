@@ -19,6 +19,8 @@ pub struct StackSnapshot {
     pub memory_offset: u32,
     /// Offset into the execution host stack
     pub host_offset: u32,
+    /// Value to be returned when the stack is restored
+    pub val: u64,
 }
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -4316,8 +4318,7 @@ pub unsafe fn thread_exit(rval: Exitcode) {
 ///
 /// ## Return
 ///
-/// Result of the stack save operation
-/// (zero upon registration and none-zero after restoration)
+/// Returns zero upon registration and the value when restored
 pub unsafe fn stack_checkpoint(snapshot: *mut StackSnapshot, val: Longsize) -> Longsize {
     let ret = wasix_64v1::stack_checkpoint(snapshot as i64, val as i64);
     ret as u64
@@ -4332,8 +4333,14 @@ pub unsafe fn stack_checkpoint(snapshot: *mut StackSnapshot, val: Longsize) -> L
 /// ## Parameters
 ///
 /// * `snapshot` - Reference to the stack snapshot that will be restored
-pub unsafe fn stack_restore(snapshot: *const StackSnapshot) {
-    wasix_64v1::stack_restore(snapshot as i64);
+///
+/// ## Return
+///
+/// This function never returns however the signature must be the same
+/// for it to behave normally
+pub unsafe fn stack_restore(snapshot: *const StackSnapshot) -> Longsize {
+    let ret = wasix_64v1::stack_restore(snapshot as i64);
+    ret as u64
 }
 
 /// Forks the current process into a new subprocess. If the function
@@ -5688,7 +5695,7 @@ pub mod wasix_64v1 {
         /// This function signature must exactly match the `stack_checkpoint` function
         /// in order for the trampoline to work properly.
         /// This function will manipulate the __stack_pointer global
-        pub fn stack_restore(arg0: i64) -> !;
+        pub fn stack_restore(arg0: i64) -> i64;
         /// Forks the current process into a new subprocess. If the function
         /// returns a zero then its the new subprocess. If it returns a positive
         /// number then its the current process and the $pid represents the child.
