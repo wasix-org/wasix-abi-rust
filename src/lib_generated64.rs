@@ -14,6 +14,26 @@ pub type TlVal = u64;
 pub type ShortHash = u64;
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
+pub struct U128 {
+    /// First set of 64 bits
+    pub b0: u64,
+    /// second set of 64 bits
+    pub b1: u64,
+}
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct StackPart {
+    pub a1: U128,
+    pub a2: U128,
+    pub a3: U128,
+    pub a4: U128,
+    pub a5: U128,
+    pub a6: U128,
+    pub a7: U128,
+    pub a8: U128,
+}
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
 pub struct StackSnapshot {
     /// Offset into the execution memory stack
     pub memory_offset: u32,
@@ -21,6 +41,15 @@ pub struct StackSnapshot {
     pub host_offset: u32,
     /// Value to be returned when the stack is restored
     pub val: u64,
+    /// Top part of the stack that is saved for later restoration
+    pub stack1: StackPart,
+    pub stack2: StackPart,
+    pub stack3: StackPart,
+    pub stack4: StackPart,
+    pub stack5: StackPart,
+    pub stack6: StackPart,
+    pub stack7: StackPart,
+    pub stack8: StackPart,
 }
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
