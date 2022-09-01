@@ -47,8 +47,6 @@ pub struct StackSnapshot {
     pub memory_offset: u32,
     /// Offset into the execution host stack
     pub host_offset: u32,
-    /// Value to be returned when the stack is restored
-    pub val: u64,
     /// Top part of the stack that is saved for later restoration
     pub stack1: StackPart,
     pub stack2: StackPart,
