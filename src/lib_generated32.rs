@@ -19,8 +19,6 @@ pub struct StackSnapshot {
     pub memory_offset: u32,
     /// Offset into the execution host stack
     pub host_offset: u32,
-    /// Hash of both the memory and host stacks
-    pub hash: u64,
 }
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -4306,16 +4304,13 @@ pub unsafe fn thread_exit(rval: Exitcode) {
     wasix_32v1::thread_exit(rval as i32);
 }
 
-/// Creates a snapshot of the current stack which allows it to be restored
+/// Creates a checkpoint of the current stack which allows it to be restored
 /// later using its stack hash.
-/// This function signature must exactly match the `stack_restore` function
-/// in order for the trampoline to work properly.
-/// This function will manipulate the __stackpointer
+/// This function will read the __stack_pointer global
 ///
 /// ## Parameters
 ///
 /// * `snapshot` - Reference to the stack snapshot that will be filled
-/// * `persist` - Flag that indicates if the stack should be persisted
 /// * `val` - Value to be returned when the stack is restored
 ///   (if zero this will change to one)
 ///
@@ -4323,33 +4318,22 @@ pub unsafe fn thread_exit(rval: Exitcode) {
 ///
 /// Result of the stack save operation
 /// (zero upon registration and none-zero after restoration)
-pub unsafe fn stack_save(snapshot: *mut StackSnapshot, persist: Bool, val: Longsize) -> Longsize {
-    let ret = wasix_32v1::stack_save(snapshot as i32, persist.0 as i32, val as i64);
+pub unsafe fn stack_checkpoint(snapshot: *mut StackSnapshot, val: Longsize) -> Longsize {
+    let ret = wasix_32v1::stack_checkpoint(snapshot as i32, val as i64);
     ret as u64
 }
 
 /// Restores the current stack to a previous stack described by its
 /// stack hash.
-/// This function signature must exactly match the `stack_save` function
+/// This function signature must exactly match the `stack_checkpoint` function
 /// in order for the trampoline to work properly.
-/// This function will manipulate the __stackpointer
+/// This function will manipulate the __stack_pointer global
 ///
 /// ## Parameters
 ///
 /// * `snapshot` - Reference to the stack snapshot that will be restored
 pub unsafe fn stack_restore(snapshot: *const StackSnapshot) {
     wasix_32v1::stack_restore(snapshot as i32);
-}
-
-/// Destroys a persisted stack snapshot that was previously made using the `stack_save`
-/// system call - stack hashes are reference countered thus if the same snapshot
-/// is taken the memory remains consistent.
-///
-/// ## Parameters
-///
-/// * `snapshot` - Reference to the stack snapshot that will be forgotten
-pub unsafe fn stack_forget(snapshot: *const StackSnapshot) {
-    wasix_32v1::stack_forget(snapshot as i32);
 }
 
 /// Forks the current process into a new subprocess. If the function
@@ -5695,22 +5679,16 @@ pub mod wasix_32v1 {
         /// of 0 indicates successful termination of the thread. The meanings of
         /// other values is dependent on the environment.
         pub fn thread_exit(arg0: i32) -> !;
-        /// Creates a snapshot of the current stack which allows it to be restored
+        /// Creates a checkpoint of the current stack which allows it to be restored
         /// later using its stack hash.
-        /// This function signature must exactly match the `stack_restore` function
-        /// in order for the trampoline to work properly.
-        /// This function will manipulate the __stackpointer
-        pub fn stack_save(arg0: i32, arg1: i32, arg2: i64) -> i64;
+        /// This function will read the __stack_pointer global
+        pub fn stack_checkpoint(arg0: i32, arg1: i64) -> i64;
         /// Restores the current stack to a previous stack described by its
         /// stack hash.
-        /// This function signature must exactly match the `stack_save` function
+        /// This function signature must exactly match the `stack_checkpoint` function
         /// in order for the trampoline to work properly.
-        /// This function will manipulate the __stackpointer
-        pub fn stack_restore(arg0: i32);
-        /// Destroys a persisted stack snapshot that was previously made using the `stack_save`
-        /// system call - stack hashes are reference countered thus if the same snapshot
-        /// is taken the memory remains consistent.
-        pub fn stack_forget(arg0: i32);
+        /// This function will manipulate the __stack_pointer global
+        pub fn stack_restore(arg0: i32) -> !;
         /// Forks the current process into a new subprocess. If the function
         /// returns a zero then its the new subprocess. If it returns a positive
         /// number then its the current process and the $pid represents the child.
