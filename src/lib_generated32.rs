@@ -34,6 +34,14 @@ pub struct StackPart {
 }
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
+pub struct Hash {
+    /// First set of 64 bits
+    pub b0: u64,
+    /// second set of 64 bits
+    pub b1: u64,
+}
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
 pub struct StackSnapshot {
     /// Offset into the execution memory stack
     pub memory_offset: u32,
@@ -50,14 +58,8 @@ pub struct StackSnapshot {
     pub stack6: StackPart,
     pub stack7: StackPart,
     pub stack8: StackPart,
-}
-#[repr(C)]
-#[derive(Copy, Clone, Debug)]
-pub struct Hash {
-    /// First set of 64 bits
-    pub b0: u64,
-    /// second set of 64 bits
-    pub b1: u64,
+    /// Hash thats used as an integrity checked
+    pub hash: Hash,
 }
 #[repr(transparent)]
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
