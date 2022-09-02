@@ -14,7 +14,7 @@ pub type TlVal = u64;
 pub type ShortHash = u64;
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
-pub struct U128 {
+pub struct Hugesize {
     /// First set of 64 bits
     pub b0: u64,
     /// second set of 64 bits
@@ -23,14 +23,14 @@ pub struct U128 {
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct StackPart {
-    pub a1: U128,
-    pub a2: U128,
-    pub a3: U128,
-    pub a4: U128,
-    pub a5: U128,
-    pub a6: U128,
-    pub a7: U128,
-    pub a8: U128,
+    pub a1: Hugesize,
+    pub a2: Hugesize,
+    pub a3: Hugesize,
+    pub a4: Hugesize,
+    pub a5: Hugesize,
+    pub a6: Hugesize,
+    pub a7: Hugesize,
+    pub a8: Hugesize,
 }
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -4336,7 +4336,9 @@ pub unsafe fn thread_exit(rval: Exitcode) {
 }
 
 /// Creates a checkpoint of the current stack which allows it to be restored
-/// later using its stack hash.
+/// later using its stack hash. The value supplied will be returned upon
+/// restoration (and hence must be none zero) - zero will be returned when
+/// the stack is first recorded.
 /// This function will read the __stack_pointer global
 ///
 /// ## Parameters
@@ -4348,28 +4350,27 @@ pub unsafe fn thread_exit(rval: Exitcode) {
 /// ## Return
 ///
 /// Returns zero upon registration and the value when restored
-pub unsafe fn stack_checkpoint(snapshot: *mut StackSnapshot, val: Longsize) -> Longsize {
-    let ret = wasix_64v1::stack_checkpoint(snapshot as i64, val as i64);
-    ret as u64
+pub unsafe fn stack_checkpoint(
+    snapshot: *mut StackSnapshot,
+    val: Longsize,
+) -> Result<Longsize, Errno> {
+    let mut rp0 = MaybeUninit::<Longsize>::uninit();
+    let ret = wasix_64v1::stack_checkpoint(snapshot as i64, val as i64, rp0.as_mut_ptr() as i64);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Longsize)),
+        _ => Err(Errno(ret as u16)),
+    }
 }
 
-/// Restores the current stack to a previous stack described by its
-/// stack hash.
-/// This function signature must exactly match the `stack_checkpoint` function
-/// in order for the trampoline to work properly.
+/// Restores the current stack to a previous stack described by a supplied
+/// stack snapshot.
 /// This function will manipulate the __stack_pointer global
 ///
 /// ## Parameters
 ///
 /// * `snapshot` - Reference to the stack snapshot that will be restored
-///
-/// ## Return
-///
-/// This function never returns however the signature must be the same
-/// for it to behave normally
-pub unsafe fn stack_restore(snapshot: *const StackSnapshot) -> Longsize {
-    let ret = wasix_64v1::stack_restore(snapshot as i64);
-    ret as u64
+pub unsafe fn stack_restore(snapshot: *const StackSnapshot) {
+    wasix_64v1::stack_restore(snapshot as i64);
 }
 
 /// Forks the current process into a new subprocess. If the function
@@ -5716,15 +5717,15 @@ pub mod wasix_64v1 {
         /// other values is dependent on the environment.
         pub fn thread_exit(arg0: i32) -> !;
         /// Creates a checkpoint of the current stack which allows it to be restored
-        /// later using its stack hash.
+        /// later using its stack hash. The value supplied will be returned upon
+        /// restoration (and hence must be none zero) - zero will be returned when
+        /// the stack is first recorded.
         /// This function will read the __stack_pointer global
-        pub fn stack_checkpoint(arg0: i64, arg1: i64) -> i64;
-        /// Restores the current stack to a previous stack described by its
-        /// stack hash.
-        /// This function signature must exactly match the `stack_checkpoint` function
-        /// in order for the trampoline to work properly.
+        pub fn stack_checkpoint(arg0: i64, arg1: i64, arg2: i64) -> i32;
+        /// Restores the current stack to a previous stack described by a supplied
+        /// stack snapshot.
         /// This function will manipulate the __stack_pointer global
-        pub fn stack_restore(arg0: i64) -> i64;
+        pub fn stack_restore(arg0: i64) -> !;
         /// Forks the current process into a new subprocess. If the function
         /// returns a zero then its the new subprocess. If it returns a positive
         /// number then its the current process and the $pid represents the child.
