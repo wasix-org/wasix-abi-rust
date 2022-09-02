@@ -4344,18 +4344,13 @@ pub unsafe fn thread_exit(rval: Exitcode) {
 /// ## Parameters
 ///
 /// * `snapshot` - Reference to the stack snapshot that will be filled
-/// * `val` - Value to be returned when the stack is restored
-///   (if zero this will change to one)
 ///
 /// ## Return
 ///
 /// Returns zero upon registration and the value when restored
-pub unsafe fn stack_checkpoint(
-    snapshot: *mut StackSnapshot,
-    val: Longsize,
-) -> Result<Longsize, Errno> {
+pub unsafe fn stack_checkpoint(snapshot: *mut StackSnapshot) -> Result<Longsize, Errno> {
     let mut rp0 = MaybeUninit::<Longsize>::uninit();
-    let ret = wasix_64v1::stack_checkpoint(snapshot as i64, val as i64, rp0.as_mut_ptr() as i64);
+    let ret = wasix_64v1::stack_checkpoint(snapshot as i64, rp0.as_mut_ptr() as i64);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Longsize)),
         _ => Err(Errno(ret as u16)),
@@ -4369,8 +4364,10 @@ pub unsafe fn stack_checkpoint(
 /// ## Parameters
 ///
 /// * `snapshot` - Reference to the stack snapshot that will be restored
-pub unsafe fn stack_restore(snapshot: *const StackSnapshot) {
-    wasix_64v1::stack_restore(snapshot as i64);
+/// * `val` - Value to be returned when the stack is restored
+///   (if zero this will change to one)
+pub unsafe fn stack_restore(snapshot: *const StackSnapshot, val: Longsize) {
+    wasix_64v1::stack_restore(snapshot as i64, val as i64);
 }
 
 /// Forks the current process into a new subprocess. If the function
@@ -5721,11 +5718,11 @@ pub mod wasix_64v1 {
         /// restoration (and hence must be none zero) - zero will be returned when
         /// the stack is first recorded.
         /// This function will read the __stack_pointer global
-        pub fn stack_checkpoint(arg0: i64, arg1: i64, arg2: i64) -> i32;
+        pub fn stack_checkpoint(arg0: i64, arg1: i64) -> i32;
         /// Restores the current stack to a previous stack described by a supplied
         /// stack snapshot.
         /// This function will manipulate the __stack_pointer global
-        pub fn stack_restore(arg0: i64) -> !;
+        pub fn stack_restore(arg0: i64, arg1: i64) -> !;
         /// Forks the current process into a new subprocess. If the function
         /// returns a zero then its the new subprocess. If it returns a positive
         /// number then its the current process and the $pid represents the child.
