@@ -3702,10 +3702,10 @@ pub unsafe fn fd_write(fd: Fd, iovs: CiovecArray<'_>) -> Result<Size, Errno> {
 /// Opens a pipe with two file handles
 ///
 /// Pipes are bidirectional
-pub unsafe fn pipe() -> Result<(Fd, Fd), Errno> {
+pub unsafe fn fd_pipe() -> Result<(Fd, Fd), Errno> {
     let mut rp0 = MaybeUninit::<Fd>::uninit();
     let mut rp1 = MaybeUninit::<Fd>::uninit();
-    let ret = wasix_32v1::pipe(rp0.as_mut_ptr() as i32, rp1.as_mut_ptr() as i32);
+    let ret = wasix_32v1::fd_pipe(rp0.as_mut_ptr() as i32, rp1.as_mut_ptr() as i32);
     match ret {
         0 => Ok((
             core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd),
@@ -4309,6 +4309,19 @@ pub unsafe fn getpid() -> Result<Pid, Errno> {
     }
 }
 
+/// Kills a running process with a particular exit code
+///
+/// ## Parameters
+///
+/// * `pid` - PID of the process to be killed
+pub unsafe fn kill(pid: Pid) -> Result<(), Errno> {
+    let ret = wasix_32v1::kill(pid as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
 /// Returns the parent handle of a particular process
 ///
 /// ## Parameters
@@ -4716,8 +4729,12 @@ pub unsafe fn http_request(
 /// * `fd` - Handle of the HTTP request
 /// * `status` - Pointer to a buffer that will be filled with the current
 ///   status of this HTTP request
-pub unsafe fn http_status(fd: Fd, status: *mut HttpStatus) {
-    wasix_32v1::http_status(fd as i32, status as i32);
+pub unsafe fn http_status(fd: Fd, status: *mut HttpStatus) -> Result<(), Errno> {
+    let ret = wasix_32v1::http_status(fd as i32, status as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
 }
 
 /// Securely connects to a particular remote network
@@ -5568,7 +5585,7 @@ pub mod wasix_32v1 {
         /// Opens a pipe with two file handles
         ///
         /// Pipes are bidirectional
-        pub fn pipe(arg0: i32, arg1: i32) -> i32;
+        pub fn fd_pipe(arg0: i32, arg1: i32) -> i32;
         /// Create a directory.
         /// Note: This is similar to `mkdirat` in POSIX.
         pub fn path_create_directory(arg0: i32, arg1: i32, arg2: i32) -> i32;
@@ -5706,6 +5723,8 @@ pub mod wasix_32v1 {
         pub fn futex_wake_all(arg0: i32, arg1: i32) -> i32;
         /// Returns the handle of the current process
         pub fn getpid(arg0: i32) -> i32;
+        /// Kills a running process with a particular exit code
+        pub fn kill(arg0: i32) -> i32;
         /// Returns the parent handle of a particular process
         pub fn getppid(arg0: i32, arg1: i32) -> i32;
         /// Terminates the current running thread, if this is the last thread then
@@ -5794,7 +5813,7 @@ pub mod wasix_32v1 {
             arg7: i32,
         ) -> i32;
         /// Retrieves the status of a HTTP request
-        pub fn http_status(arg0: i32, arg1: i32);
+        pub fn http_status(arg0: i32, arg1: i32) -> i32;
         /// Securely connects to a particular remote network
         pub fn port_bridge(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32) -> i32;
         /// Disconnects from a remote network
