@@ -1,6 +1,6 @@
 [package]
 name = "wasix"
-version = "0.11.51"
+version = "0.11.52"
 authors = ["The Cranelift Project Developers", "john-sharratt"]
 license = "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT"
 description = "Experimental WASIX API bindings for Rust"

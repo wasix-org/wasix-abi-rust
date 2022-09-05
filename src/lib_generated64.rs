@@ -4309,13 +4309,14 @@ pub unsafe fn getpid() -> Result<Pid, Errno> {
     }
 }
 
-/// Kills a running process with a particular exit code
+/// Sends a signal to a running process with a particular exit code
 ///
 /// ## Parameters
 ///
 /// * `pid` - PID of the process to be killed
-pub unsafe fn kill(pid: Pid) -> Result<(), Errno> {
-    let ret = wasix_64v1::kill(pid as i32);
+/// * `signal` - Signal to send to the process
+pub unsafe fn signal(pid: Pid, signal: Signal) -> Result<(), Errno> {
+    let ret = wasix_64v1::signal(pid as i32, signal.0 as i32);
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
@@ -5723,8 +5724,8 @@ pub mod wasix_64v1 {
         pub fn futex_wake_all(arg0: i64, arg1: i64) -> i32;
         /// Returns the handle of the current process
         pub fn getpid(arg0: i64) -> i32;
-        /// Kills a running process with a particular exit code
-        pub fn kill(arg0: i32) -> i32;
+        /// Sends a signal to a running process with a particular exit code
+        pub fn signal(arg0: i32, arg1: i32) -> i32;
         /// Returns the parent handle of a particular process
         pub fn getppid(arg0: i32, arg1: i64) -> i32;
         /// Terminates the current running thread, if this is the last thread then
