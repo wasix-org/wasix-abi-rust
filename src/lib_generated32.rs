@@ -4242,6 +4242,20 @@ pub unsafe fn thread_parallelism() -> Result<Size, Errno> {
     }
 }
 
+/// Sends a signal to a thread
+///
+/// ## Parameters
+///
+/// * `tid` - Handle of the thread to send a singal
+/// * `signal` - Signal to send to the thread
+pub unsafe fn thread_signal(tid: Tid, signal: Signal) -> Result<(), Errno> {
+    let ret = wasix_32v1::thread_signal(tid as i32, signal.0 as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
 /// Wait for a futex_wake operation to wake us.
 /// Returns with EINVAL if the futex doesn't hold the expected value.
 /// Returns false on timeout, and true in all other cases.
@@ -4305,20 +4319,6 @@ pub unsafe fn getpid() -> Result<Pid, Errno> {
     let ret = wasix_32v1::getpid(rp0.as_mut_ptr() as i32);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Pid)),
-        _ => Err(Errno(ret as u16)),
-    }
-}
-
-/// Sends a signal to a running process with a particular exit code
-///
-/// ## Parameters
-///
-/// * `pid` - PID of the process to be killed
-/// * `signal` - Signal to send to the process
-pub unsafe fn signal(pid: Pid, signal: Signal) -> Result<(), Errno> {
-    let ret = wasix_32v1::signal(pid as i32, signal.0 as i32);
-    match ret {
-        0 => Ok(()),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -4446,6 +4446,20 @@ pub unsafe fn process_spawn(
             rp0.as_mut_ptr() as i32 as *const ProcessHandles
         )),
         _ => Err(BusError(ret as u32)),
+    }
+}
+
+/// Sends a signal to a process
+///
+/// ## Parameters
+///
+/// * `pid` - ID of the process to send a singal
+/// * `signal` - Signal to send to the thread
+pub unsafe fn process_signal(pid: Pid, signal: Signal) -> Result<(), Errno> {
+    let ret = wasix_32v1::process_signal(pid as i32, signal.0 as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
     }
 }
 
@@ -5712,6 +5726,8 @@ pub mod wasix_32v1 {
         /// Returns the available parallelism which is normally the
         /// number of available cores that can run concurrently
         pub fn thread_parallelism(arg0: i32) -> i32;
+        /// Sends a signal to a thread
+        pub fn thread_signal(arg0: i32, arg1: i32) -> i32;
         /// Wait for a futex_wake operation to wake us.
         /// Returns with EINVAL if the futex doesn't hold the expected value.
         /// Returns false on timeout, and true in all other cases.
@@ -5724,8 +5740,6 @@ pub mod wasix_32v1 {
         pub fn futex_wake_all(arg0: i32, arg1: i32) -> i32;
         /// Returns the handle of the current process
         pub fn getpid(arg0: i32) -> i32;
-        /// Sends a signal to a running process with a particular exit code
-        pub fn signal(arg0: i32, arg1: i32) -> i32;
         /// Returns the parent handle of a particular process
         pub fn getppid(arg0: i32, arg1: i32) -> i32;
         /// Terminates the current running thread, if this is the last thread then
@@ -5763,6 +5777,8 @@ pub mod wasix_32v1 {
             arg11: i32,
             arg12: i32,
         ) -> i32;
+        /// Sends a signal to a process
+        pub fn process_signal(arg0: i32, arg1: i32) -> i32;
         /// Spawns a new bus process for a particular web WebAssembly
         /// binary that is referenced by its process name.
         pub fn bus_open_local(arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> i32;
