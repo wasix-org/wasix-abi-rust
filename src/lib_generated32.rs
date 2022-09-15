@@ -4132,7 +4132,7 @@ pub unsafe fn callback_thread_local_destroy(callback: &str) {
 ///
 /// * `user_data` - User data that will be supplied to the function when its called
 /// * `stack_base` - The base address of the stack allocated for this thread
-/// * `stack_end` - The end address of the stack allocated for this thread
+/// * `stack_start` - The start address of the stack (where the memory is allocated)
 /// * `reactor` - Indicates if the function will operate as a reactor or
 ///   as a normal thread. Reactors will be repeatable called
 ///   whenever IO work is available to be processed.
@@ -4144,14 +4144,14 @@ pub unsafe fn callback_thread_local_destroy(callback: &str) {
 pub unsafe fn thread_spawn(
     user_data: u64,
     stack_base: u64,
-    stack_end: u64,
+    stack_start: u64,
     reactor: Bool,
 ) -> Result<Tid, Errno> {
     let mut rp0 = MaybeUninit::<Tid>::uninit();
     let ret = wasix_32v1::thread_spawn(
         user_data as i64,
         stack_base as i64,
-        stack_end as i64,
+        stack_start as i64,
         reactor.0 as i32,
         rp0.as_mut_ptr() as i32,
     );
