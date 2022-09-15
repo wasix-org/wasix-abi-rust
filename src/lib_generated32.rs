@@ -4006,31 +4006,6 @@ pub unsafe fn poll_oneoff(
     }
 }
 
-/// Terminate the process normally. An exit code of 0 indicates successful
-/// termination of the program. The meanings of other values is dependent on
-/// the environment.
-///
-/// ## Parameters
-///
-/// * `rval` - The exit code returned by the process.
-pub unsafe fn proc_exit(rval: Exitcode) {
-    wasix_32v1::proc_exit(rval as i32);
-}
-
-/// Send a signal to the process of the calling thread.
-/// Note: This is similar to `raise` in POSIX.
-///
-/// ## Parameters
-///
-/// * `sig` - The signal condition to trigger.
-pub unsafe fn proc_raise(sig: Signal) -> Result<(), Errno> {
-    let ret = wasix_32v1::proc_raise(sig.0 as i32);
-    match ret {
-        0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
-    }
-}
-
 /// Temporarily yield execution of the calling thread.
 /// Note: This is similar to `sched_yield` in POSIX.
 pub unsafe fn sched_yield() -> Result<(), Errno> {
@@ -4105,6 +4080,50 @@ pub unsafe fn chdir(path: &str) -> Result<(), Errno> {
     }
 }
 
+/// Registers a callback function for signals
+///
+/// ## Parameters
+///
+/// * `callback` - Exported function that will be called back when the signal triggers
+///   (must match the callback signature that takes the signal value)
+///   (if this is not specified the default will be "_signal")
+pub unsafe fn callback_signal(callback: &str) {
+    wasix_32v1::callback_signal(callback.as_ptr() as i32, callback.len() as i32);
+}
+
+/// Registers a callback function for new threads
+///
+/// ## Parameters
+///
+/// * `callback` - Exported function that will be called back when a new thread is created
+///   (must match the callback signature that takes the u64 user_data)
+///   (if this is not specified the default will be "_start_thread")
+pub unsafe fn callback_thread(callback: &str) {
+    wasix_32v1::callback_thread(callback.as_ptr() as i32, callback.len() as i32);
+}
+
+/// Registers a callback function for reactors
+///
+/// ## Parameters
+///
+/// * `callback` - Exported function that will be called back when the reactor is triggered
+///   (must match the callback signature that takes the u64 user_data)
+///   (if this is not specified the default will be "_reactor")
+pub unsafe fn callback_reactor(callback: &str) {
+    wasix_32v1::callback_reactor(callback.as_ptr() as i32, callback.len() as i32);
+}
+
+/// Registers a callback function for destruction of thread locals
+///
+/// ## Parameters
+///
+/// * `callback` - Exported function that will be called back when the reactor is triggered
+///   (must match the callback signature that takes the u64 user_data)
+///   (if this is not specified the default will be "_thread_local_destroy")
+pub unsafe fn callback_thread_local_destroy(callback: &str) {
+    wasix_32v1::callback_thread_local_destroy(callback.as_ptr() as i32, callback.len() as i32);
+}
+
 /// Creates a new thread by spawning that shares the same
 /// memory address space, file handles and main event loops.
 /// The web assembly process must export function named '_start_thread'
@@ -4113,6 +4132,7 @@ pub unsafe fn chdir(path: &str) -> Result<(), Errno> {
 ///
 /// * `user_data` - User data that will be supplied to the function when its called
 /// * `stack_base` - The base address of the stack allocated for this thread
+/// * `stack_end` - The end address of the stack allocated for this thread
 /// * `reactor` - Indicates if the function will operate as a reactor or
 ///   as a normal thread. Reactors will be repeatable called
 ///   whenever IO work is available to be processed.
@@ -4121,11 +4141,17 @@ pub unsafe fn chdir(path: &str) -> Result<(), Errno> {
 ///
 /// Returns the thread index of the newly created thread
 /// (indices always start from zero)
-pub unsafe fn thread_spawn(user_data: u64, stack_base: u64, reactor: Bool) -> Result<Tid, Errno> {
+pub unsafe fn thread_spawn(
+    user_data: u64,
+    stack_base: u64,
+    stack_end: u64,
+    reactor: Bool,
+) -> Result<Tid, Errno> {
     let mut rp0 = MaybeUninit::<Tid>::uninit();
     let ret = wasix_32v1::thread_spawn(
         user_data as i64,
         stack_base as i64,
+        stack_end as i64,
         reactor.0 as i32,
         rp0.as_mut_ptr() as i32,
     );
@@ -4313,30 +4339,6 @@ pub unsafe fn futex_wake_all(futex: *mut u32) -> Result<Bool, Errno> {
     }
 }
 
-/// Returns the handle of the current process
-pub unsafe fn getpid() -> Result<Pid, Errno> {
-    let mut rp0 = MaybeUninit::<Pid>::uninit();
-    let ret = wasix_32v1::getpid(rp0.as_mut_ptr() as i32);
-    match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Pid)),
-        _ => Err(Errno(ret as u16)),
-    }
-}
-
-/// Returns the parent handle of a particular process
-///
-/// ## Parameters
-///
-/// * `pid` - Handle of the process to get the parent handle for
-pub unsafe fn getppid(pid: Pid) -> Result<Pid, Errno> {
-    let mut rp0 = MaybeUninit::<Pid>::uninit();
-    let ret = wasix_32v1::getppid(pid as i32, rp0.as_mut_ptr() as i32);
-    match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Pid)),
-        _ => Err(Errno(ret as u16)),
-    }
-}
-
 /// Terminates the current running thread, if this is the last thread then
 /// the process will also exit with the specified exit code. An exit code
 /// of 0 indicates successful termination of the thread. The meanings of
@@ -4384,16 +4386,62 @@ pub unsafe fn stack_restore(snapshot: *const StackSnapshot, val: Longsize) {
     wasix_32v1::stack_restore(snapshot as i32, val as i64);
 }
 
+/// Terminate the process normally. An exit code of 0 indicates successful
+/// termination of the program. The meanings of other values is dependent on
+/// the environment.
+///
+/// ## Parameters
+///
+/// * `rval` - The exit code returned by the process.
+pub unsafe fn proc_exit(rval: Exitcode) {
+    wasix_32v1::proc_exit(rval as i32);
+}
+
+/// Send a signal to the process of the calling thread.
+/// Note: This is similar to `raise` in POSIX.
+///
+/// ## Parameters
+///
+/// * `sig` - The signal condition to trigger.
+pub unsafe fn proc_raise(sig: Signal) -> Result<(), Errno> {
+    let ret = wasix_32v1::proc_raise(sig.0 as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
 /// Forks the current process into a new subprocess. If the function
 /// returns a zero then its the new subprocess. If it returns a positive
 /// number then its the current process and the $pid represents the child.
-pub unsafe fn fork() -> Result<Pid, Errno> {
+pub unsafe fn proc_fork() -> Result<Pid, Errno> {
     let mut rp0 = MaybeUninit::<Pid>::uninit();
-    let ret = wasix_32v1::fork(rp0.as_mut_ptr() as i32);
+    let ret = wasix_32v1::proc_fork(rp0.as_mut_ptr() as i32);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Pid)),
         _ => Err(Errno(ret as u16)),
     }
+}
+
+/// execve()  executes  the  program  referred to by pathname.  This causes the
+/// program that is currently being run by the calling process to  be  replaced
+/// with  a  new  program, with newly initialized stack, heap, and (initialized
+/// and uninitialized) data segments
+///
+/// If the named process does not exist then the process will fail and terminate
+///
+/// ## Parameters
+///
+/// * `name` - Name of the process to be spawned
+/// * `args` - List of the arguments to pass the process
+///   (entries are separated by line feeds)
+pub unsafe fn proc_exec(name: &str, args: &str) {
+    wasix_32v1::proc_exec(
+        name.as_ptr() as i32,
+        name.len() as i32,
+        args.as_ptr() as i32,
+        args.len() as i32,
+    );
 }
 
 /// Spawns a new process within the context of this machine
@@ -4415,7 +4463,7 @@ pub unsafe fn fork() -> Result<Pid, Errno> {
 /// ## Return
 ///
 /// Returns a bus process id that can be used to invoke calls
-pub unsafe fn process_spawn(
+pub unsafe fn proc_spawn(
     name: &str,
     chroot: Bool,
     args: &str,
@@ -4426,7 +4474,7 @@ pub unsafe fn process_spawn(
     working_dir: &str,
 ) -> Result<ProcessHandles, BusError> {
     let mut rp0 = MaybeUninit::<ProcessHandles>::uninit();
-    let ret = wasix_32v1::process_spawn(
+    let ret = wasix_32v1::proc_spawn(
         name.as_ptr() as i32,
         name.len() as i32,
         chroot.0 as i32,
@@ -4449,14 +4497,56 @@ pub unsafe fn process_spawn(
     }
 }
 
+/// Returns the handle of the current process
+pub unsafe fn proc_id() -> Result<Pid, Errno> {
+    let mut rp0 = MaybeUninit::<Pid>::uninit();
+    let ret = wasix_32v1::proc_id(rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Pid)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Returns the parent handle of a particular process
+///
+/// ## Parameters
+///
+/// * `pid` - Handle of the process to get the parent handle for
+pub unsafe fn proc_parent(pid: Pid) -> Result<Pid, Errno> {
+    let mut rp0 = MaybeUninit::<Pid>::uninit();
+    let ret = wasix_32v1::proc_parent(pid as i32, rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Pid)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Wait for process to exit
+///
+/// ## Parameters
+///
+/// * `pid` - ID of the process to wait on
+///
+/// ## Return
+///
+/// Returns the exit code of the process
+pub unsafe fn proc_join(pid: Pid) -> Result<Exitcode, Errno> {
+    let mut rp0 = MaybeUninit::<Exitcode>::uninit();
+    let ret = wasix_32v1::proc_join(pid as i32, rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Exitcode)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
 /// Sends a signal to a process
 ///
 /// ## Parameters
 ///
 /// * `pid` - ID of the process to send a singal
 /// * `signal` - Signal to send to the thread
-pub unsafe fn process_signal(pid: Pid, signal: Signal) -> Result<(), Errno> {
-    let ret = wasix_32v1::process_signal(pid as i32, signal.0 as i32);
+pub unsafe fn proc_signal(pid: Pid, signal: Signal) -> Result<(), Errno> {
+    let ret = wasix_32v1::proc_signal(pid as i32, signal.0 as i32);
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
@@ -5674,13 +5764,6 @@ pub mod wasix_32v1 {
         pub fn path_unlink_file(arg0: i32, arg1: i32, arg2: i32) -> i32;
         /// Concurrently poll for the occurrence of a set of events.
         pub fn poll_oneoff(arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> i32;
-        /// Terminate the process normally. An exit code of 0 indicates successful
-        /// termination of the program. The meanings of other values is dependent on
-        /// the environment.
-        pub fn proc_exit(arg0: i32) -> !;
-        /// Send a signal to the process of the calling thread.
-        /// Note: This is similar to `raise` in POSIX.
-        pub fn proc_raise(arg0: i32) -> i32;
         /// Temporarily yield execution of the calling thread.
         /// Note: This is similar to `sched_yield` in POSIX.
         pub fn sched_yield() -> i32;
@@ -5701,10 +5784,18 @@ pub mod wasix_32v1 {
         pub fn getcwd(arg0: i32, arg1: i32) -> i32;
         /// Sets the current working directory
         pub fn chdir(arg0: i32, arg1: i32) -> i32;
+        /// Registers a callback function for signals
+        pub fn callback_signal(arg0: i32, arg1: i32);
+        /// Registers a callback function for new threads
+        pub fn callback_thread(arg0: i32, arg1: i32);
+        /// Registers a callback function for reactors
+        pub fn callback_reactor(arg0: i32, arg1: i32);
+        /// Registers a callback function for destruction of thread locals
+        pub fn callback_thread_local_destroy(arg0: i32, arg1: i32);
         /// Creates a new thread by spawning that shares the same
         /// memory address space, file handles and main event loops.
         /// The web assembly process must export function named '_start_thread'
-        pub fn thread_spawn(arg0: i64, arg1: i64, arg2: i32, arg3: i32) -> i32;
+        pub fn thread_spawn(arg0: i64, arg1: i64, arg2: i64, arg3: i32, arg4: i32) -> i32;
         /// Sends the current thread to sleep for a period of time
         pub fn thread_sleep(arg0: i64) -> i32;
         /// Returns the index of the current thread
@@ -5738,10 +5829,6 @@ pub mod wasix_32v1 {
         pub fn futex_wake(arg0: i32, arg1: i32) -> i32;
         /// Wake up all threads that are waiting on futex_wait on this futex.
         pub fn futex_wake_all(arg0: i32, arg1: i32) -> i32;
-        /// Returns the handle of the current process
-        pub fn getpid(arg0: i32) -> i32;
-        /// Returns the parent handle of a particular process
-        pub fn getppid(arg0: i32, arg1: i32) -> i32;
         /// Terminates the current running thread, if this is the last thread then
         /// the process will also exit with the specified exit code. An exit code
         /// of 0 indicates successful termination of the thread. The meanings of
@@ -5757,12 +5844,26 @@ pub mod wasix_32v1 {
         /// stack snapshot.
         /// This function will manipulate the __stack_pointer global
         pub fn stack_restore(arg0: i32, arg1: i64) -> !;
+        /// Terminate the process normally. An exit code of 0 indicates successful
+        /// termination of the program. The meanings of other values is dependent on
+        /// the environment.
+        pub fn proc_exit(arg0: i32) -> !;
+        /// Send a signal to the process of the calling thread.
+        /// Note: This is similar to `raise` in POSIX.
+        pub fn proc_raise(arg0: i32) -> i32;
         /// Forks the current process into a new subprocess. If the function
         /// returns a zero then its the new subprocess. If it returns a positive
         /// number then its the current process and the $pid represents the child.
-        pub fn fork(arg0: i32) -> i32;
+        pub fn proc_fork(arg0: i32) -> i32;
+        /// execve()  executes  the  program  referred to by pathname.  This causes the
+        /// program that is currently being run by the calling process to  be  replaced
+        /// with  a  new  program, with newly initialized stack, heap, and (initialized
+        /// and uninitialized) data segments
+        ///
+        /// If the named process does not exist then the process will fail and terminate
+        pub fn proc_exec(arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> !;
         /// Spawns a new process within the context of this machine
-        pub fn process_spawn(
+        pub fn proc_spawn(
             arg0: i32,
             arg1: i32,
             arg2: i32,
@@ -5777,8 +5878,14 @@ pub mod wasix_32v1 {
             arg11: i32,
             arg12: i32,
         ) -> i32;
+        /// Returns the handle of the current process
+        pub fn proc_id(arg0: i32) -> i32;
+        /// Returns the parent handle of a particular process
+        pub fn proc_parent(arg0: i32, arg1: i32) -> i32;
+        /// Wait for process to exit
+        pub fn proc_join(arg0: i32, arg1: i32) -> i32;
         /// Sends a signal to a process
-        pub fn process_signal(arg0: i32, arg1: i32) -> i32;
+        pub fn proc_signal(arg0: i32, arg1: i32) -> i32;
         /// Spawns a new bus process for a particular web WebAssembly
         /// binary that is referenced by its process name.
         pub fn bus_open_local(arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> i32;
