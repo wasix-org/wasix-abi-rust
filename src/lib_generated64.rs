@@ -47,15 +47,13 @@ pub struct StackSnapshot {
     pub memory_offset: u32,
     /// Offset into the execution host stack
     pub host_offset: u32,
+    /// User defined field that can be used by functions
+    pub user: u64,
     /// Top part of the stack that is saved for later restoration
     pub stack1: StackPart,
     pub stack2: StackPart,
     pub stack3: StackPart,
     pub stack4: StackPart,
-    pub stack5: StackPart,
-    pub stack6: StackPart,
-    pub stack7: StackPart,
-    pub stack8: StackPart,
     /// Hash thats used as an integrity checked
     pub hash: Hash,
 }
