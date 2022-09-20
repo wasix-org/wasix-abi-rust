@@ -4412,9 +4412,15 @@ pub unsafe fn proc_raise(sig: Signal) -> Result<(), Errno> {
 /// Forks the current process into a new subprocess. If the function
 /// returns a zero then its the new subprocess. If it returns a positive
 /// number then its the current process and the $pid represents the child.
-pub unsafe fn proc_fork() -> Result<Pid, Errno> {
+///
+/// ## Parameters
+///
+/// * `copy_memory` - Indicates if the memory will be copied into the new process
+///   (if it is not copied this then becomes similar to `vfork` in
+///    that the current process pauses until `proc_exec` is called)
+pub unsafe fn proc_fork(copy_memory: Bool) -> Result<Pid, Errno> {
     let mut rp0 = MaybeUninit::<Pid>::uninit();
-    let ret = wasix_32v1::proc_fork(rp0.as_mut_ptr() as i32);
+    let ret = wasix_32v1::proc_fork(copy_memory.0 as i32, rp0.as_mut_ptr() as i32);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Pid)),
         _ => Err(Errno(ret as u16)),
@@ -5852,7 +5858,7 @@ pub mod wasix_32v1 {
         /// Forks the current process into a new subprocess. If the function
         /// returns a zero then its the new subprocess. If it returns a positive
         /// number then its the current process and the $pid represents the child.
-        pub fn proc_fork(arg0: i32) -> i32;
+        pub fn proc_fork(arg0: i32, arg1: i32) -> i32;
         /// execve()  executes  the  program  referred to by pathname.  This causes the
         /// program that is currently being run by the calling process to  be  replaced
         /// with  a  new  program, with newly initialized stack, heap, and (initialized
