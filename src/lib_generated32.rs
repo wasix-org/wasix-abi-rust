@@ -3335,16 +3335,6 @@ pub unsafe fn fd_close(fd: Fd) -> Result<(), Errno> {
     }
 }
 
-/// Returns true if the file descriptor is a TTY
-pub unsafe fn fd_isatty(fd: Fd) -> Result<Bool, Errno> {
-    let mut rp0 = MaybeUninit::<Bool>::uninit();
-    let ret = wasix_32v1::fd_isatty(fd as i32, rp0.as_mut_ptr() as i32);
-    match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Bool)),
-        _ => Err(Errno(ret as u16)),
-    }
-}
-
 /// Synchronize the data of a file to disk.
 /// Note: This is similar to `fdatasync` in POSIX.
 pub unsafe fn fd_datasync(fd: Fd) -> Result<(), Errno> {
@@ -5632,8 +5622,6 @@ pub mod wasix_32v1 {
         /// Close a file descriptor.
         /// Note: This is similar to `close` in POSIX.
         pub fn fd_close(arg0: i32) -> i32;
-        /// Returns true if the file descriptor is a TTY
-        pub fn fd_isatty(arg0: i32, arg1: i32) -> i32;
         /// Synchronize the data of a file to disk.
         /// Note: This is similar to `fdatasync` in POSIX.
         pub fn fd_datasync(arg0: i32) -> i32;
