@@ -4409,6 +4409,27 @@ pub unsafe fn proc_raise(sig: Signal) -> Result<(), Errno> {
     }
 }
 
+/// Send a signal to the process of the calling thread on a regular basis
+/// Note: This is similar to `setitimer` in POSIX.
+///
+/// ## Parameters
+///
+/// * `sig` - The signal condition to trigger.
+/// * `interval` - Time to wait before raising the signal
+///   (zero here indicates the signal interval is cancelled)
+/// * `repeat` - Flag that indicates if the signal will trigger indefinately
+pub unsafe fn proc_raise_interval(
+    sig: Signal,
+    interval: Timestamp,
+    repeat: Bool,
+) -> Result<(), Errno> {
+    let ret = wasix_32v1::proc_raise_interval(sig.0 as i32, interval as i64, repeat.0 as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
 /// Forks the current process into a new subprocess. If the function
 /// returns a zero then its the new subprocess. If it returns a positive
 /// number then its the current process and the $pid represents the child.
@@ -5855,6 +5876,9 @@ pub mod wasix_32v1 {
         /// Send a signal to the process of the calling thread.
         /// Note: This is similar to `raise` in POSIX.
         pub fn proc_raise(arg0: i32) -> i32;
+        /// Send a signal to the process of the calling thread on a regular basis
+        /// Note: This is similar to `setitimer` in POSIX.
+        pub fn proc_raise_interval(arg0: i32, arg1: i64, arg2: i32) -> i32;
         /// Forks the current process into a new subprocess. If the function
         /// returns a zero then its the new subprocess. If it returns a positive
         /// number then its the current process and the $pid represents the child.
