@@ -4555,11 +4555,11 @@ pub unsafe fn proc_parent(pid: Pid) -> Result<Pid, Errno> {
 /// ## Return
 ///
 /// Returns the exit code of the process
-pub unsafe fn proc_join(pid: *mut Pid) -> Result<Pid, Errno> {
-    let mut rp0 = MaybeUninit::<Pid>::uninit();
+pub unsafe fn proc_join(pid: *mut Pid) -> Result<Exitcode, Errno> {
+    let mut rp0 = MaybeUninit::<Exitcode>::uninit();
     let ret = wasix_32v1::proc_join(pid as i32, rp0.as_mut_ptr() as i32);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Pid)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Exitcode)),
         _ => Err(Errno(ret as u16)),
     }
 }
