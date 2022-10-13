@@ -43,6 +43,8 @@ pub struct Hash {
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct StackSnapshot {
+    /// User defined field that can be used by functions
+    pub user: u64,
     /// Hash used to identify which stack snapshot to restore
     pub hash: Hash,
 }
