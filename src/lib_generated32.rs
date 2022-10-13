@@ -43,18 +43,7 @@ pub struct Hash {
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct StackSnapshot {
-    /// Offset into the execution memory stack
-    pub memory_offset: u32,
-    /// Offset into the execution host stack
-    pub host_offset: u32,
-    /// User defined field that can be used by functions
-    pub user: u64,
-    /// Top part of the stack that is saved for later restoration
-    pub stack1: StackPart,
-    pub stack2: StackPart,
-    pub stack3: StackPart,
-    pub stack4: StackPart,
-    /// Hash thats used as an integrity checked
+    /// Hash used to identify which stack snapshot to restore
     pub hash: Hash,
 }
 #[repr(transparent)]
