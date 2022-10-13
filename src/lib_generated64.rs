@@ -4555,11 +4555,11 @@ pub unsafe fn proc_parent(pid: Pid) -> Result<Pid, Errno> {
 /// ## Return
 ///
 /// Returns the exit code of the process
-pub unsafe fn proc_join(pid: Pid) -> Result<Exitcode, Errno> {
-    let mut rp0 = MaybeUninit::<Exitcode>::uninit();
-    let ret = wasix_64v1::proc_join(pid as i32, rp0.as_mut_ptr() as i64);
+pub unsafe fn proc_join(pid: *mut Pid) -> Result<Pid, Errno> {
+    let mut rp0 = MaybeUninit::<Pid>::uninit();
+    let ret = wasix_64v1::proc_join(pid as i64, rp0.as_mut_ptr() as i64);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Exitcode)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Pid)),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -5911,7 +5911,7 @@ pub mod wasix_64v1 {
         /// Returns the parent handle of a particular process
         pub fn proc_parent(arg0: i32, arg1: i64) -> i32;
         /// Wait for process to exit
-        pub fn proc_join(arg0: i32, arg1: i64) -> i32;
+        pub fn proc_join(arg0: i64, arg1: i64) -> i32;
         /// Sends a signal to a process
         pub fn proc_signal(arg0: i32, arg1: i32) -> i32;
         /// Spawns a new bus process for a particular web WebAssembly
