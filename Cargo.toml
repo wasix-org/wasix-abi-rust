@@ -1,6 +1,6 @@
 [package]
 name = "wasix"
-version = "0.11.64"
+version = "0.12.0"
 authors = ["The Cranelift Project Developers", "john-sharratt"]
 license = "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT"
 description = "Experimental WASIX API bindings for Rust"
@@ -19,6 +19,7 @@ members = ['crates/witx-bindgen', 'crates/wasi-ephemeral']
 compiler_builtins = { version = "0.1", optional = true }
 core = { version = "1.0", optional = true, package = "rustc-std-workspace-core" }
 rustc-std-workspace-alloc = { version = "1.0", optional = true }
+wasi = { version = "0.11.0" }
 
 [features]
 default = ["std"]
