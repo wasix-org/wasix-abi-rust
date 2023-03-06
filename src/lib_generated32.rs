@@ -22,18 +22,6 @@ pub struct Hugesize {
 }
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
-pub struct StackPart {
-    pub a1: Hugesize,
-    pub a2: Hugesize,
-    pub a3: Hugesize,
-    pub a4: Hugesize,
-    pub a5: Hugesize,
-    pub a6: Hugesize,
-    pub a7: Hugesize,
-    pub a8: Hugesize,
-}
-#[repr(C)]
-#[derive(Copy, Clone, Debug)]
 pub struct Hash {
     /// First set of 64 bits
     pub b0: u64,
@@ -269,6 +257,10 @@ pub const ERRNO_XDEV: Errno = Errno(75);
 pub const ERRNO_NOTCAPABLE: Errno = Errno(76);
 /// Cannot send after socket shutdown.
 pub const ERRNO_SHUTDOWN: Errno = Errno(77);
+/// Memory access violation.
+pub const ERRNO_MEMVIOLATION: Errno = Errno(78);
+/// Unknown error has occurred.
+pub const ERRNO_UNKNOWN: Errno = Errno(79);
 impl Errno {
     pub const fn raw(&self) -> u16 {
         self.0
@@ -354,6 +346,8 @@ impl Errno {
             75 => "XDEV",
             76 => "NOTCAPABLE",
             77 => "SHUTDOWN",
+            78 => "MEMVIOLATION",
+            79 => "UNKNOWN",
             _ => unsafe { core::hint::unreachable_unchecked() },
         }
     }
@@ -437,6 +431,8 @@ impl Errno {
             75 => "Cross-device link.",
             76 => "Extension: Capabilities insufficient.",
             77 => "Cannot send after socket shutdown.",
+            78 => "Memory access violation.",
+            79 => "Unknown error has occurred.",
             _ => unsafe { core::hint::unreachable_unchecked() },
         }
     }
@@ -654,6 +650,19 @@ pub union OptionCidU {
 pub struct OptionCid {
     pub tag: u8,
     pub u: OptionCidU,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union OptionPidU {
+    pub none: u8,
+    pub some: Pid,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct OptionPid {
+    pub tag: u8,
+    pub u: OptionPidU,
 }
 
 #[repr(C)]
@@ -1545,51 +1554,54 @@ pub const SIGNAL_ALRM: Signal = Signal(14);
 /// Termination signal.
 /// Action: Terminates the process.
 pub const SIGNAL_TERM: Signal = Signal(15);
+/// Stkflt
+/// Action: Ignored.
+pub const SIGNAL_STKFLT: Signal = Signal(16);
 /// Child process terminated, stopped, or continued.
 /// Action: Ignored.
-pub const SIGNAL_CHLD: Signal = Signal(16);
+pub const SIGNAL_CHLD: Signal = Signal(17);
 /// Continue executing, if stopped.
 /// Action: Continues executing, if stopped.
-pub const SIGNAL_CONT: Signal = Signal(17);
+pub const SIGNAL_CONT: Signal = Signal(18);
 /// Stop executing.
 /// Action: Stops executing.
-pub const SIGNAL_STOP: Signal = Signal(18);
+pub const SIGNAL_STOP: Signal = Signal(19);
 /// Terminal stop signal.
 /// Action: Stops executing.
-pub const SIGNAL_TSTP: Signal = Signal(19);
+pub const SIGNAL_TSTP: Signal = Signal(20);
 /// Background process attempting read.
 /// Action: Stops executing.
-pub const SIGNAL_TTIN: Signal = Signal(20);
+pub const SIGNAL_TTIN: Signal = Signal(21);
 /// Background process attempting write.
 /// Action: Stops executing.
-pub const SIGNAL_TTOU: Signal = Signal(21);
+pub const SIGNAL_TTOU: Signal = Signal(22);
 /// High bandwidth data is available at a socket.
 /// Action: Ignored.
-pub const SIGNAL_URG: Signal = Signal(22);
+pub const SIGNAL_URG: Signal = Signal(23);
 /// CPU time limit exceeded.
 /// Action: Terminates the process.
-pub const SIGNAL_XCPU: Signal = Signal(23);
+pub const SIGNAL_XCPU: Signal = Signal(24);
 /// File size limit exceeded.
 /// Action: Terminates the process.
-pub const SIGNAL_XFSZ: Signal = Signal(24);
+pub const SIGNAL_XFSZ: Signal = Signal(25);
 /// Virtual timer expired.
 /// Action: Terminates the process.
-pub const SIGNAL_VTALRM: Signal = Signal(25);
+pub const SIGNAL_VTALRM: Signal = Signal(26);
 /// Profiling timer expired.
 /// Action: Terminates the process.
-pub const SIGNAL_PROF: Signal = Signal(26);
+pub const SIGNAL_PROF: Signal = Signal(27);
 /// Window changed.
 /// Action: Ignored.
-pub const SIGNAL_WINCH: Signal = Signal(27);
+pub const SIGNAL_WINCH: Signal = Signal(28);
 /// I/O possible.
 /// Action: Terminates the process.
-pub const SIGNAL_POLL: Signal = Signal(28);
+pub const SIGNAL_POLL: Signal = Signal(29);
 /// Power failure.
 /// Action: Terminates the process.
-pub const SIGNAL_PWR: Signal = Signal(29);
+pub const SIGNAL_PWR: Signal = Signal(30);
 /// Bad system call.
 /// Action: Terminates the process.
-pub const SIGNAL_SYS: Signal = Signal(30);
+pub const SIGNAL_SYS: Signal = Signal(31);
 impl Signal {
     pub const fn raw(&self) -> u8 {
         self.0
@@ -1613,21 +1625,22 @@ impl Signal {
             13 => "PIPE",
             14 => "ALRM",
             15 => "TERM",
-            16 => "CHLD",
-            17 => "CONT",
-            18 => "STOP",
-            19 => "TSTP",
-            20 => "TTIN",
-            21 => "TTOU",
-            22 => "URG",
-            23 => "XCPU",
-            24 => "XFSZ",
-            25 => "VTALRM",
-            26 => "PROF",
-            27 => "WINCH",
-            28 => "POLL",
-            29 => "PWR",
-            30 => "SYS",
+            16 => "STKFLT",
+            17 => "CHLD",
+            18 => "CONT",
+            19 => "STOP",
+            20 => "TSTP",
+            21 => "TTIN",
+            22 => "TTOU",
+            23 => "URG",
+            24 => "XCPU",
+            25 => "XFSZ",
+            26 => "VTALRM",
+            27 => "PROF",
+            28 => "WINCH",
+            29 => "POLL",
+            30 => "PWR",
+            31 => "SYS",
             _ => unsafe { core::hint::unreachable_unchecked() },
         }
     }
@@ -1698,62 +1711,66 @@ Action: Terminates the process."
 Action: Terminates the process."
             }
             16 => {
-                "Child process terminated, stopped, or continued.
+                "Stkflt
 Action: Ignored."
             }
             17 => {
+                "Child process terminated, stopped, or continued.
+Action: Ignored."
+            }
+            18 => {
                 "Continue executing, if stopped.
 Action: Continues executing, if stopped."
             }
-            18 => {
+            19 => {
                 "Stop executing.
 Action: Stops executing."
             }
-            19 => {
+            20 => {
                 "Terminal stop signal.
 Action: Stops executing."
             }
-            20 => {
+            21 => {
                 "Background process attempting read.
 Action: Stops executing."
             }
-            21 => {
+            22 => {
                 "Background process attempting write.
 Action: Stops executing."
             }
-            22 => {
+            23 => {
                 "High bandwidth data is available at a socket.
 Action: Ignored."
             }
-            23 => {
+            24 => {
                 "CPU time limit exceeded.
 Action: Terminates the process."
             }
-            24 => {
+            25 => {
                 "File size limit exceeded.
 Action: Terminates the process."
             }
-            25 => {
+            26 => {
                 "Virtual timer expired.
 Action: Terminates the process."
             }
-            26 => {
+            27 => {
                 "Profiling timer expired.
 Action: Terminates the process."
             }
-            27 => {
+            28 => {
                 "Window changed.
 Action: Ignored."
             }
-            28 => {
+            29 => {
                 "I/O possible.
 Action: Terminates the process."
             }
-            29 => {
+            30 => {
                 "Power failure.
 Action: Terminates the process."
             }
-            30 => {
+            31 => {
                 "Bad system call.
 Action: Terminates the process."
             }
@@ -3160,6 +3177,137 @@ pub struct Prestat {
     pub u: PrestatU,
 }
 
+pub type JoinFlags = u32;
+/// Non-blocking join on the process
+pub const JOIN_FLAGS_NON_BLOCKING: JoinFlags = 1 << 0;
+/// Return if a process is stopped
+pub const JOIN_FLAGS_WAKE_STOPPED: JoinFlags = 1 << 1;
+
+#[repr(transparent)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct JoinStatusType(u8);
+/// Nothing has happened
+pub const JOIN_STATUS_TYPE_NOTHING: JoinStatusType = JoinStatusType(0);
+/// The process has exited by a normal exit code
+pub const JOIN_STATUS_TYPE_EXIT_NORMAL: JoinStatusType = JoinStatusType(1);
+/// The process was terminated by a signal
+pub const JOIN_STATUS_TYPE_EXIT_SIGNAL: JoinStatusType = JoinStatusType(2);
+/// The process was stopped by a signal and can be resumed with SIGCONT
+pub const JOIN_STATUS_TYPE_STOPPED: JoinStatusType = JoinStatusType(3);
+impl JoinStatusType {
+    pub const fn raw(&self) -> u8 {
+        self.0
+    }
+
+    pub fn name(&self) -> &'static str {
+        match self.0 {
+            0 => "NOTHING",
+            1 => "EXIT_NORMAL",
+            2 => "EXIT_SIGNAL",
+            3 => "STOPPED",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+    pub fn message(&self) -> &'static str {
+        match self.0 {
+            0 => "Nothing has happened",
+            1 => "The process has exited by a normal exit code",
+            2 => "The process was terminated by a signal",
+            3 => "The process was stopped by a signal and can be resumed with SIGCONT",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+}
+impl fmt::Debug for JoinStatusType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("JoinStatusType")
+            .field("code", &self.0)
+            .field("name", &self.name())
+            .field("message", &self.message())
+            .finish()
+    }
+}
+impl From<u8> for JoinStatusType {
+    fn from(a: u8) -> Self {
+        Self(a)
+    }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct ErrnoSignal {
+    /// The exit code that was returned
+    pub exit_code: Errno,
+    /// The signal that was returned
+    pub signal: Signal,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union JoinStatusU {
+    pub nothing: u8,
+    pub exit_normal: Errno,
+    pub exit_signal: ErrnoSignal,
+    pub stopped: Signal,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct JoinStatus {
+    pub tag: u8,
+    pub u: JoinStatusU,
+}
+
+pub type ThreadFlags = u16;
+/// tsd_used
+pub const THREAD_FLAGS_TSD_USED: ThreadFlags = 1 << 0;
+/// dlerror_flag
+pub const THREAD_FLAGS_DLERROR_FLAG: ThreadFlags = 1 << 1;
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct ThreadState {
+    pub thread_self: Pointersize,
+    pub dtv: Pointersize,
+    pub thread_prev: Pointersize,
+    pub thread_next: Pointersize,
+    pub sysinfo: Pointersize,
+    pub canary: Pointersize,
+    pub tid: i32,
+    pub errno_val: i32,
+    pub detach_state: i32,
+    pub cancel: i32,
+    pub canceldisable: u8,
+    pub cancelasync: u8,
+    pub flags: ThreadFlags,
+    pub map_base: Pointersize,
+    pub map_size: Pointersize,
+    pub stack: Pointersize,
+    pub stack_size: Pointersize,
+    pub guard_size: Pointersize,
+    pub result: Pointersize,
+    pub cancelbuf: Pointersize,
+    pub tsd: Pointersize,
+    pub robust_list_head: Pointersize,
+    pub robust_list_off: Pointersize,
+    pub robust_list_pending: Pointersize,
+    pub h_errno_val: i32,
+    pub timer_id: i32,
+    pub locale: Pointersize,
+    pub killlock: i32,
+    pub dlerror_buf: Pointersize,
+    pub stdio_locks: Pointersize,
+}
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct ThreadStart {
+    /// Address where the stack starts
+    pub stack: Pointersize,
+    /// Address where the TLS starts
+    pub tls_base: Pointersize,
+    /// Function that will be invoked when the thread starts
+    pub start_funct: Pointersize,
+    /// Arguments to pass the callback function
+    pub start_args: Pointersize,
+}
 /// Read command-line argument data.
 /// The size of the array should match that returned by `args_sizes_get`.
 /// Each argument is expected to be `\0` terminated.
@@ -4115,35 +4263,20 @@ pub unsafe fn callback_thread_local_destroy(callback: &str) {
 
 /// Creates a new thread by spawning that shares the same
 /// memory address space, file handles and main event loops.
-/// The web assembly process must export function named '_start_thread'
+/// The web assembly process must export function named 'wasi_thread_start'
 ///
 /// ## Parameters
 ///
-/// * `user_data` - User data that will be supplied to the function when its called
-/// * `stack_base` - The base address of the stack allocated for this thread
-/// * `stack_start` - The start address of the stack (where the memory is allocated)
-/// * `reactor` - Indicates if the function will operate as a reactor or
-///   as a normal thread. Reactors will be repeatable called
-///   whenever IO work is available to be processed.
+/// * `args` - Pointer to the structure the describes the thread
+///   that is being spawened
 ///
 /// ## Return
 ///
 /// Returns the thread index of the newly created thread
 /// (indices always start from zero)
-pub unsafe fn thread_spawn(
-    user_data: u64,
-    stack_base: u64,
-    stack_start: u64,
-    reactor: Bool,
-) -> Result<Tid, Errno> {
+pub unsafe fn thread_spawn(args: *mut ThreadStart) -> Result<Tid, Errno> {
     let mut rp0 = MaybeUninit::<Tid>::uninit();
-    let ret = wasix_32v1::thread_spawn(
-        user_data as i64,
-        stack_base as i64,
-        stack_start as i64,
-        reactor.0 as i32,
-        rp0.as_mut_ptr() as i32,
-    );
+    let ret = wasix_32v1::thread_spawn(args as i32, rp0.as_mut_ptr() as i32);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Tid)),
         _ => Err(Errno(ret as u16)),
@@ -4542,15 +4675,16 @@ pub unsafe fn proc_parent(pid: Pid) -> Result<Pid, Errno> {
 /// ## Parameters
 ///
 /// * `pid` - ID of the process to wait on
+/// * `flags` - Flags that determine how the join behaves
 ///
 /// ## Return
 ///
-/// Returns the exit code of the process
-pub unsafe fn proc_join(pid: *mut Pid) -> Result<Exitcode, Errno> {
-    let mut rp0 = MaybeUninit::<Exitcode>::uninit();
-    let ret = wasix_32v1::proc_join(pid as i32, rp0.as_mut_ptr() as i32);
+/// Returns the status of the process
+pub unsafe fn proc_join(pid: *mut OptionPid, flags: JoinFlags) -> Result<JoinStatus, Errno> {
+    let mut rp0 = MaybeUninit::<JoinStatus>::uninit();
+    let ret = wasix_32v1::proc_join(pid as i32, flags as i32, rp0.as_mut_ptr() as i32);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Exitcode)),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const JoinStatus)),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -5810,8 +5944,8 @@ pub mod wasix_32v1 {
         pub fn callback_thread_local_destroy(arg0: i32, arg1: i32);
         /// Creates a new thread by spawning that shares the same
         /// memory address space, file handles and main event loops.
-        /// The web assembly process must export function named '_start_thread'
-        pub fn thread_spawn(arg0: i64, arg1: i64, arg2: i64, arg3: i32, arg4: i32) -> i32;
+        /// The web assembly process must export function named 'wasi_thread_start'
+        pub fn thread_spawn(arg0: i32, arg1: i32) -> i32;
         /// Sends the current thread to sleep for a period of time
         pub fn thread_sleep(arg0: i64) -> i32;
         /// Returns the index of the current thread
@@ -5902,7 +6036,7 @@ pub mod wasix_32v1 {
         /// Returns the parent handle of a particular process
         pub fn proc_parent(arg0: i32, arg1: i32) -> i32;
         /// Wait for process to exit
-        pub fn proc_join(arg0: i32, arg1: i32) -> i32;
+        pub fn proc_join(arg0: i32, arg1: i32, arg2: i32) -> i32;
         /// Sends a signal to a process
         pub fn proc_signal(arg0: i32, arg1: i32) -> i32;
         /// Spawns a new bus process for a particular web WebAssembly

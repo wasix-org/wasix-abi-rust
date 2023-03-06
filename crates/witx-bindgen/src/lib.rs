@@ -351,16 +351,16 @@ impl Render for BuiltinType {
             // overkill for the purposes that we'll be using this type for.
             BuiltinType::U8 { lang_c_char: _ } => src.push_str("u8"),
             BuiltinType::U16 => src.push_str("u16"),
-            BuiltinType::U32{
+            BuiltinType::U32 {
                 lang_ptr_size: false,
             } => src.push_str("u32"),
-            BuiltinType::U32{
+            BuiltinType::U32 {
                 lang_ptr_size: true,
             } => src.push_str("usize"),
-            BuiltinType::U64{
+            BuiltinType::U64 {
                 lang_ptr_size: false,
             } => src.push_str("u64"),
-            BuiltinType::U64{
+            BuiltinType::U64 {
                 lang_ptr_size: true,
             } => src.push_str("usize"),
             BuiltinType::Usize => src.push_str("usize"),
