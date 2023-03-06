@@ -3307,6 +3307,21 @@ pub struct ThreadStart {
     pub start_funct: Pointersize,
     /// Arguments to pass the callback function
     pub start_args: Pointersize,
+    /// Reserved for future WASI usage
+    pub reserved0: Pointersize,
+    pub reserved1: Pointersize,
+    pub reserved2: Pointersize,
+    pub reserved3: Pointersize,
+    pub reserved4: Pointersize,
+    pub reserved5: Pointersize,
+    pub reserved6: Pointersize,
+    pub reserved7: Pointersize,
+    pub reserved8: Pointersize,
+    pub reserved9: Pointersize,
+    /// The size of the stack
+    pub stack_size: Pointersize,
+    /// The size of the guards at the end of the stack
+    pub guard_size: Pointersize,
 }
 /// Read command-line argument data.
 /// The size of the array should match that returned by `args_sizes_get`.
