@@ -13,3 +13,25 @@ for x::Filetype {
        value.raw().into()
     }
 }
+
+/// Unsafe
+///
+/// The Errno will be exactly the same size and should be compatible
+///
+impl From<x::Errno>
+for wasi::Errno {
+    fn from(value: x::Errno) -> Self {
+        unsafe { core::mem::transmute(value) }
+    }
+}
+
+/// Unsafe
+///
+/// The Errno will be exactly the same size and should be compatible
+///
+impl From<x::Filetype>
+for wasi::Filetype {
+    fn from(value: x::Filetype) -> Self {
+        unsafe { core::mem::transmute(value) }
+    }
+}
