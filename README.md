@@ -124,6 +124,7 @@ pub use x::sock_leave_multicast_v6;
 pub use x::sock_bind;
 pub use x::sock_listen;
 pub use x::sock_connect;
+pub use x::sock_open;
 pub use x::sock_recv_from;
 pub use x::sock_send_to;
 pub use x::sock_send_file;
