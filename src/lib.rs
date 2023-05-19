@@ -104,11 +104,17 @@ pub use x::Pid;
 pub use x::Tid;
 
 // Additional file types
+pub use x::Filetype;
+pub use x::FILETYPE_BLOCK_DEVICE;
+pub use x::FILETYPE_CHARACTER_DEVICE;
+pub use x::FILETYPE_DIRECTORY;
+pub use x::FILETYPE_REGULAR_FILE;
 pub use x::FILETYPE_SOCKET_DGRAM;
 pub use x::FILETYPE_SOCKET_STREAM;
-pub use x::FILETYPE_SYMBOLIC_LINK;
 pub use x::FILETYPE_SOCKET_RAW;
 pub use x::FILETYPE_SOCKET_SEQPACKET;
+pub use x::FILETYPE_SYMBOLIC_LINK;
+pub use x::FILETYPE_UNKNOWN;
 
 // Signals are now supported
 pub use x::Signal;
