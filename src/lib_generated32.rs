@@ -718,22 +718,8 @@ impl From<u8> for Bool {
     }
 }
 
-#[repr(C)]
-#[derive(Copy, Clone, Debug)]
-pub struct Iovec {
-    /// The address of the buffer to be filled.
-    pub buf: *mut u8,
-    /// The length of the buffer to be filled.
-    pub buf_len: Pointersize,
-}
-#[repr(C)]
-#[derive(Copy, Clone, Debug)]
-pub struct Ciovec {
-    /// The address of the buffer to be written.
-    pub buf: *const u8,
-    /// The length of the buffer to be written.
-    pub buf_len: Pointersize,
-}
+pub use wasi::Iovec;
+pub use wasi::Ciovec;
 pub type IovecArray<'a> = &'a [Iovec];
 pub type CiovecArray<'a> = &'a [Ciovec];
 pub type Filedelta = i64;
