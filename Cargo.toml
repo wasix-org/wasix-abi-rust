@@ -11,9 +11,6 @@ repository = "https://github.com/john-sharratt/wasix"
 readme = "README.md"
 documentation = "https://docs.rs/wasix"
 
-[workspace]
-members = ['crates/wasi-ephemeral']
-
 [dependencies]
 # When built as part of libstd
 compiler_builtins = { version = "0.1", optional = true }
