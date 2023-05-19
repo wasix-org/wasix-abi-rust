@@ -69,6 +69,7 @@ pub use x::BOOL_TRUE;
 
 // Additional error codes
 pub use x::ERRNO_SHUTDOWN;
+pub use x::ERRNO_OVERFLOW;
 pub use x::ERRNO_MEMVIOLATION;
 pub use x::ERRNO_UNKNOWN;
 
