@@ -158,7 +158,7 @@ fn main() {
 ```
 
 Next you can use a tool like [`cargo
-wasix`](https://github.com/wasmerio/cargo-wasix) to compile and run your
+wasix`](https://github.com/wasix-org/cargo-wasix) to compile and run your
 project:
 
 To compile Rust projects to wasm using WASI, use the `wasm32-wasix` target,

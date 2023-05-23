@@ -15,6 +15,9 @@ pub fn generate<P: AsRef<Path>>(witx_paths: &[P], is64bit: bool) -> String {
 //
 // To regenerate this file run the `crates/witx-bindgen` command
 
+// Inherit from WASI
+pub use wasi::*;
+
 use core::mem::MaybeUninit;
 use core::fmt;
 ",
@@ -74,6 +77,10 @@ trait Render {
 
 impl Render for NamedType {
     fn render(&self, src: &mut String) {
+        if self.hidden {
+            return;
+        }
+
         let name = self.name.as_str();
         match &self.tref {
             TypeRef::Value(ty) => match &**ty {
