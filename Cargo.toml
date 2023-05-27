@@ -1,9 +1,9 @@
 [package]
 name = "wasix"
-version = "0.12.12"
+version = "0.12.13"
 authors = ["The Cranelift Project Developers", "john-sharratt"]
 license = "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT"
-description = "Experimental WASIX API bindings for Rust"
+description = "WASIX API bindings for Rust"
 edition = "2018"
 categories = ["no-std", "wasm"]
 keywords = ["webassembly", "wasm"]
