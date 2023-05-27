@@ -1,8 +1,17 @@
 <div align="center">
   <h1><code>WASI(X)</code></h1>
 
-<strong>WASI is a <a href="https://bytecodealliance.org/">Bytecode Alliance</a> project</strong><br />
-<strong>WASI(X) adds extensions and is managed by the <a href="https://wasmer.io/">Wasmer Community</a></strong>
+<strong>WASIX adds extensions on WASIX and is managed by the <a href="https://github.com/wasix-org">wasix.org community</a></strong>
+
+  <p>
+    <strong>WASI(X) API Bindings for Rust</strong>
+  </p>
+
+  <p>
+    <a href="https://crates.io/crates/wasix"><img src="https://img.shields.io/crates/v/wasix.svg?style=flat-square" alt="Crates.io version" /></a>
+    <a href="https://crates.io/crates/wasix"><img src="https://img.shields.io/crates/d/wasix.svg?style=flat-square" alt="Download" /></a>
+    <a href="https://docs.rs/wasix/"><img src="https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square" alt="docs.rs docs" /></a>
+  </p>
 
   <p>
     <strong>WASI API Bindings for Rust</strong>
@@ -14,125 +23,63 @@
     <a href="https://docs.rs/wasi/"><img src="https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square" alt="docs.rs docs" /></a>
   </p>
 
-  <p>
-    <strong>WASI(X) API Bindings for Rust</strong>
-  </p>
-
-  <p>
-    <a href="https://crates.io/crates/wasix"><img src="https://img.shields.io/crates/v/wasix.svg?style=flat-square" alt="Crates.io version" /></a>
-    <a href="https://crates.io/crates/wasix"><img src="https://img.shields.io/crates/d/wasix.svg?style=flat-square" alt="Download" /></a>
-    <a href="https://docs.rs/wasix/"><img src="https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square" alt="docs.rs docs" /></a>
-  </p>
 </div>
 
-This crate contains API bindings for [WASI](https://github.com/WebAssembly/WASI)
-system calls in Rust, and currently reflects the `wasi_snapshot_preview1` namespace
 
-[WASIX](https://github.com/john-sharratt/wasix) adds extensions to [WASI](https://github.com/WebAssembly/WASI)
-as a superset., and currently reflects the `wasix_32v1` namespace
+# WASI(X) Extensions Spec
 
-# What is WASIX?
+WASI(X) is maintained by [wasix.org](https://wasix.org).
 
-WASIX is the long term stabilization and support of the existing WASI ABI *plus* additional non-invasive syscall extensions that complete the missing gaps sufficiently enough to enable real, practical and useful applications to be compiled now. It aims to speed up the ecosystem around the WASI so that the WASM’ification of code bases around the world can really start *today*.
+The intent of WASIX (pronounced "was-x") is to extend the WASI proposal and
+complete the ABI sufficiently now to build useful and productive applications
+today - it is not intended as a fork but rather to be a superset on top of WASI.
+Therefore it maintains full forwards and backwards compatibility with the `preview1`
+version of WASI and stabilizes it for the long term.
 
-# Additional extensions
+WASIX is published on [crates.io](https://crates.io)  
+https://crates.io/crates/wasix
 
-```rust
-// Its now possible to duplicate file handles
-pub use x::fd_dup;
+# Current Extensions
 
-// Events are used by polling functions that can be interrupted such
-// as `tokio` and `mio`
-pub use x::fd_event;
+Below are the current extensions supported by WASIX, they are all fully tested and
+incorporated into supporting runtime(s):
 
-// Pipes are required to stream data to and from subprocesses
-pub use x::fd_pipe;
+- full support for efficient multithreading including joins, signals
+  and `getpid`
+- `pthreads` support (now extended from the WASI threads spec)
+- full support for sockets (`socket`, `bind`, `connect`, `resolve`)
+    - IPv4, IPv6
+    - UDP, TCP
+    - Multicast, Anycast
+    - RAW sockets
+- current directory support (`chdir`) integrated with the runtime
+- `setjmp` / `longjmp` support (used extensively in `libc` ) via `asyncify`
+- process forking (`fork` and `vfork` )
+- subprocess spawning and waiting (`exec` , `wait` )
+- TTY support
+- asynchronous polling of sockets and files
+- pipe and event support (`pipe`, `event` )
+- DNS resolution support (`resolve` )
 
-// Yields CPU time without the bloat of `poll_oneoff`
-pub use x::sched_yield;
+# WASI(X) Contributions
 
-// Getting and setting the TTY properties
-pub use x::tty_get;
-pub use x::tty_set;
+All contributions are welcome on extending WASI(X) with other extension(s). Just submit your pull request
+here and we will review via normal GitHub processes.
 
-// Changing the current directory is now natively supported
-pub use x::getcwd;
-pub use x::chdir;
+[https://github.com/orgs/wasix-org/repositories](https://github.com/orgs/wasix-org/repositories)
 
-// Signals can be blocked (needed by `libc`)
-pub use x::callback_signal;
+# Long-term Support
 
-// Spawning threads as per the experimental threads spec
-pub use x::thread_spawn;
+WASIX will receive long term support by this community with a guarantee of backwards compatibility on the ABI.
+Runtime(s) that support this ABI are assured of its stability just as standard libraries and libraries can
+also count on that same stability to join the dots and make the connections.
 
-// Extra thread related functions
-pub use x::thread_sleep;
-pub use x::thread_id;
-pub use x::thread_join;
-pub use x::thread_parallelism;
-pub use x::thread_signal;
-pub use x::thread_exit;
+Major bug fixes and/or zero day vulnerabilities will be addressed promptly here with careful consideration for
+resolving issues without compromising the long-term support goal.
 
-// Operating system futex support used for multithread constructs
-pub use x::futex_wait;
-pub use x::futex_wake;
-pub use x::futex_wake_all;
+# Dependency Graph
 
-// Longjmp and setjmp used by `libc`
-pub use x::stack_checkpoint;
-pub use x::stack_restore;
-
-// Subprocess support
-pub use x::proc_raise_interval;
-pub use x::proc_fork;
-pub use x::proc_exec;
-pub use x::proc_spawn;
-pub use x::proc_id;
-pub use x::proc_parent;
-pub use x::proc_join;
-pub use x::proc_signal;
-
-// Interface support
-pub use x::port_bridge;
-pub use x::port_unbridge;
-pub use x::port_dhcp_acquire;
-pub use x::port_addr_add;
-pub use x::port_addr_remove;
-pub use x::port_addr_clear;
-pub use x::port_mac;
-pub use x::port_addr_list;
-pub use x::port_gateway_set;
-pub use x::port_route_add;
-pub use x::port_route_remove;
-pub use x::port_route_clear;
-pub use x::port_route_list;
-
-// All the missing socket functionality
-pub use x::sock_status;
-pub use x::sock_addr_local;
-pub use x::sock_addr_peer;
-pub use x::sock_set_opt_flag;
-pub use x::sock_get_opt_flag;
-pub use x::sock_set_opt_time;
-pub use x::sock_get_opt_time;
-pub use x::sock_set_opt_size;
-pub use x::sock_get_opt_size;
-pub use x::sock_join_multicast_v4;
-pub use x::sock_leave_multicast_v4;
-pub use x::sock_join_multicast_v6;
-pub use x::sock_leave_multicast_v6;
-pub use x::sock_bind;
-pub use x::sock_listen;
-pub use x::sock_connect;
-pub use x::sock_accept as sock_accept2;
-pub use x::sock_open;
-pub use x::sock_recv_from;
-pub use x::sock_send_to;
-pub use x::sock_send_file;
-
-// Ability to perform DNS queries
-pub use x::resolve;
-```
+![Dependencieis](dependencies.drawio.png)
 
 # Usage
 
