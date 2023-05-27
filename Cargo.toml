@@ -1,13 +1,13 @@
 [package]
 name = "wasix"
-version = "0.12.11"
+version = "0.12.12"
 authors = ["The Cranelift Project Developers", "john-sharratt"]
 license = "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT"
 description = "Experimental WASIX API bindings for Rust"
 edition = "2018"
 categories = ["no-std", "wasm"]
 keywords = ["webassembly", "wasm"]
-repository = "https://github.com/wasix-org/wasix"
+repository = "https://github.com/wasix-org/wasix-abi-rust"
 readme = "README.md"
 documentation = "https://docs.rs/wasix"
 
