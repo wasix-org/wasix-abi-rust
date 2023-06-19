@@ -172,6 +172,8 @@ pub const ERRNO_SHUTDOWN: Errno = Errno(77);
 pub const ERRNO_MEMVIOLATION: Errno = Errno(78);
 /// Unknown error has occurred.
 pub const ERRNO_UNKNOWN: Errno = Errno(79);
+/// Pending asynchronous wake.
+pub const ERRNO_PENDING: Errno = Errno(80);
 impl Errno {
     pub const fn raw(&self) -> u16 {
         self.0
@@ -259,6 +261,7 @@ impl Errno {
             77 => "SHUTDOWN",
             78 => "MEMVIOLATION",
             79 => "UNKNOWN",
+            80 => "PENDING",
             _ => unsafe { core::hint::unreachable_unchecked() },
         }
     }
@@ -344,6 +347,7 @@ impl Errno {
             77 => "Cannot send after socket shutdown.",
             78 => "Memory access violation.",
             79 => "Unknown error has occurred.",
+            80 => "Pending asynchronous wake.",
             _ => unsafe { core::hint::unreachable_unchecked() },
         }
     }
