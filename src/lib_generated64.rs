@@ -3943,6 +3943,28 @@ pub unsafe fn sock_accept_poll(
     }
 }
 
+/// Polls if any connections are waiting to be accepted
+///
+/// If this function would block it returns Errno::Pending instead
+/// and invokes the waker in the future.
+///
+/// ## Parameters
+///
+/// * `fd` - The listening socket.
+/// * `waker` - Waker that will be invoked when this function is ready to be polled again
+///
+/// ## Return
+///
+/// Number of connections that are waiting
+pub unsafe fn sock_accept_ready_poll(fd: Fd, waker: Waker) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
+    let ret = wasix_64v1::sock_accept_ready_poll(fd as i32, waker as i64, rp0.as_mut_ptr() as i64);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
 /// Receive a message and its peer address from a socket.
 ///
 /// If this function would block it returns Errno::Pending instead
@@ -3986,7 +4008,7 @@ pub unsafe fn sock_recv_from_poll(
     }
 }
 
-/// Receive a message from a socket.
+/// Polls to receive a message from a socket.
 ///
 /// If this function would block it returns Errno::Pending instead
 /// and invokes the waker in the future.
@@ -4026,6 +4048,27 @@ pub unsafe fn sock_recv_poll(
     }
 }
 
+/// Polls if a message is waiting to be received
+///
+/// If this function would block it returns Errno::Pending instead
+/// and invokes the waker in the future.
+///
+/// ## Parameters
+///
+/// * `waker` - Waker that will be invoked when this function is ready to be polled again
+///
+/// ## Return
+///
+/// Number of bytes stored waiting to be received
+pub unsafe fn sock_recv_ready_poll(fd: Fd, waker: Waker) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
+    let ret = wasix_64v1::sock_recv_ready_poll(fd as i32, waker as i64, rp0.as_mut_ptr() as i64);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
 /// Send a message on a socket.
 ///
 /// If this function would block it returns Errno::Pending instead
@@ -4055,6 +4098,27 @@ pub unsafe fn sock_send_poll(
         waker as i64,
         rp0.as_mut_ptr() as i64,
     );
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Polls if the socket is ready to send messages
+///
+/// If this function would block it returns Errno::Pending instead
+/// and invokes the waker in the future.
+///
+/// ## Parameters
+///
+/// * `waker` - Waker that will be invoked when this function is ready to be polled again
+///
+/// ## Return
+///
+/// Number of bytes that can be sent.
+pub unsafe fn sock_send_ready_poll(fd: Fd, waker: Waker) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
+    let ret = wasix_64v1::sock_send_ready_poll(fd as i32, waker as i64, rp0.as_mut_ptr() as i64);
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
         _ => Err(Errno(ret as u16)),
@@ -4511,6 +4575,11 @@ pub mod wasix_64v1 {
         /// If this function would block it returns Errno::Pending instead
         /// and invokes the waker in the future.
         pub fn sock_accept_poll(arg0: i32, arg1: i32, arg2: i64, arg3: i64, arg4: i64) -> i32;
+        /// Polls if any connections are waiting to be accepted
+        ///
+        /// If this function would block it returns Errno::Pending instead
+        /// and invokes the waker in the future.
+        pub fn sock_accept_ready_poll(arg0: i32, arg1: i64, arg2: i64) -> i32;
         /// Receive a message and its peer address from a socket.
         ///
         /// If this function would block it returns Errno::Pending instead
@@ -4525,7 +4594,7 @@ pub mod wasix_64v1 {
             arg6: i64,
             arg7: i64,
         ) -> i32;
-        /// Receive a message from a socket.
+        /// Polls to receive a message from a socket.
         ///
         /// If this function would block it returns Errno::Pending instead
         /// and invokes the waker in the future.
@@ -4538,6 +4607,11 @@ pub mod wasix_64v1 {
             arg5: i64,
             arg6: i64,
         ) -> i32;
+        /// Polls if a message is waiting to be received
+        ///
+        /// If this function would block it returns Errno::Pending instead
+        /// and invokes the waker in the future.
+        pub fn sock_recv_ready_poll(arg0: i32, arg1: i64, arg2: i64) -> i32;
         /// Send a message on a socket.
         ///
         /// If this function would block it returns Errno::Pending instead
@@ -4550,6 +4624,11 @@ pub mod wasix_64v1 {
             arg4: i64,
             arg5: i64,
         ) -> i32;
+        /// Polls if the socket is ready to send messages
+        ///
+        /// If this function would block it returns Errno::Pending instead
+        /// and invokes the waker in the future.
+        pub fn sock_send_ready_poll(arg0: i32, arg1: i64, arg2: i64) -> i32;
         /// Send a message on a socket to a specific address.
         ///
         /// If this function would block it returns Errno::Pending instead
