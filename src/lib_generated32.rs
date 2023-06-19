@@ -4133,6 +4133,76 @@ pub unsafe fn thread_sleep_poll(duration: Timestamp, waker: Waker) -> Result<(),
     }
 }
 
+/// Read from a file descriptor, without using and updating the file descriptor's offset.
+///
+/// If this function would block it returns Errno::Pending instead
+/// and invokes the waker in the future.
+///
+/// ## Parameters
+///
+/// * `iovs` - List of scatter/gather vectors in which to store data.
+/// * `offset` - The offset within the file at which to read.
+/// * `waker` - Waker that will be invoked when this function is ready to be polled again
+///
+/// ## Return
+///
+/// The number of bytes read.
+pub unsafe fn fd_pread_poll(
+    fd: Fd,
+    iovs: IovecArray<'_>,
+    offset: Filesize,
+    waker: Waker,
+) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
+    let ret = wasix_32v1::fd_pread_poll(
+        fd as i32,
+        iovs.as_ptr() as i32,
+        iovs.len() as i32,
+        offset as i64,
+        waker as i64,
+        rp0.as_mut_ptr() as i32,
+    );
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Write to a file descriptor, without using and updating the file descriptor's offset.
+///
+/// If this function would block it returns Errno::Pending instead
+/// and invokes the waker in the future.
+///
+/// ## Parameters
+///
+/// * `iovs` - List of scatter/gather vectors from which to retrieve data.
+/// * `offset` - The offset within the file at which to write.
+/// * `waker` - Waker that will be invoked when this function is ready to be polled again
+///
+/// ## Return
+///
+/// The number of bytes written.
+pub unsafe fn fd_pwrite_poll(
+    fd: Fd,
+    iovs: CiovecArray<'_>,
+    offset: Filesize,
+    waker: Waker,
+) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
+    let ret = wasix_32v1::fd_pwrite_poll(
+        fd as i32,
+        iovs.as_ptr() as i32,
+        iovs.len() as i32,
+        offset as i64,
+        waker as i64,
+        rp0.as_mut_ptr() as i32,
+    );
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
 pub mod wasix_32v1 {
     #[link(wasm_import_module = "wasix_32v1")]
     extern "C" {
@@ -4503,5 +4573,29 @@ pub mod wasix_32v1 {
         /// If this function would block it returns Errno::Pending instead
         /// and invokes the waker in the future.
         pub fn thread_sleep_poll(arg0: i64, arg1: i64) -> i32;
+        /// Read from a file descriptor, without using and updating the file descriptor's offset.
+        ///
+        /// If this function would block it returns Errno::Pending instead
+        /// and invokes the waker in the future.
+        pub fn fd_pread_poll(
+            arg0: i32,
+            arg1: i32,
+            arg2: i32,
+            arg3: i64,
+            arg4: i64,
+            arg5: i32,
+        ) -> i32;
+        /// Write to a file descriptor, without using and updating the file descriptor's offset.
+        ///
+        /// If this function would block it returns Errno::Pending instead
+        /// and invokes the waker in the future.
+        pub fn fd_pwrite_poll(
+            arg0: i32,
+            arg1: i32,
+            arg2: i32,
+            arg3: i64,
+            arg4: i64,
+            arg5: i32,
+        ) -> i32;
     }
 }
