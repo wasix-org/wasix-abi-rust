@@ -53,10 +53,6 @@ pub use x::*;
 mod conv;
 pub use conv::*;
 
-// Add in the wakers
-mod waker;
-pub use waker::*;
-
 /// Special `Dircookie` value indicating the start of a directory.
 pub const DIRCOOKIE_START: Dircookie = 0;
 
