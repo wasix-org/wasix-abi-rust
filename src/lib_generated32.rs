@@ -3764,24 +3764,22 @@ pub unsafe fn resolve(
     }
 }
 
-/// Registers a callback function for waking up wakers
+/// Registers a callback function for waking and dropping wakers passed
+/// into polling syscalls
 ///
 /// ## Parameters
 ///
 /// * `callback` - Exported function that will be called back when a waker has been triggered
-///   (if this is not specified the default will be "_waker_wake")
-pub unsafe fn callback_waker_wake(callback: &str) {
-    wasix_32v1::callback_waker_wake(callback.as_ptr() as i32, callback.len() as i32);
-}
-
-/// Registers a callback function for destructing a waker
-///
-/// ## Parameters
-///
-/// * `callback` - Exported function that will be called back when a waker has been dropped
-///   (if this is not specified the default will be "_waker_drop")
-pub unsafe fn callback_waker_drop(callback: &str) {
-    wasix_32v1::callback_waker_drop(callback.as_ptr() as i32, callback.len() as i32);
+///   (if this is not specified the default will be "_wake")
+///   
+///   For the wake function it accepts 8xi64 numbers as parameters where each number
+///   represents what to do with the waker.
+///   > 0 means wake it up
+///   < 0 means drop it and release memory
+///   0 means noop
+///   
+pub unsafe fn callback_wake(callback: &str) {
+    wasix_32v1::callback_wake(callback.as_ptr() as i32, callback.len() as i32);
 }
 
 /// Read from a file descriptor.
@@ -4539,10 +4537,9 @@ pub mod wasix_32v1 {
         /// IPv4 and/or IPv6 addresses. Each address entry consists of a addr_t object.
         /// This function fills the output buffer as much as possible.
         pub fn resolve(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32, arg5: i32) -> i32;
-        /// Registers a callback function for waking up wakers
-        pub fn callback_waker_wake(arg0: i32, arg1: i32);
-        /// Registers a callback function for destructing a waker
-        pub fn callback_waker_drop(arg0: i32, arg1: i32);
+        /// Registers a callback function for waking and dropping wakers passed
+        /// into polling syscalls
+        pub fn callback_wake(arg0: i32, arg1: i32);
         /// Read from a file descriptor.
         ///
         /// If this read function would block it returns Errno::Pending instead
