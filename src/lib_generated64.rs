@@ -2540,6 +2540,77 @@ pub struct ThreadStart {
     /// The size of the guards at the end of the stack
     pub guard_size: Pointersize,
 }
+pub type EpollType = u32;
+pub const EPOLL_TYPE_EPOLLIN: EpollType = 1 << 0;
+pub const EPOLL_TYPE_EPOLLOUT: EpollType = 1 << 1;
+pub const EPOLL_TYPE_EPOLLRDHUP: EpollType = 1 << 2;
+pub const EPOLL_TYPE_EPOLLPRI: EpollType = 1 << 3;
+pub const EPOLL_TYPE_EPOLLERR: EpollType = 1 << 4;
+pub const EPOLL_TYPE_EPOLLHUP: EpollType = 1 << 5;
+pub const EPOLL_TYPE_EPOLLET: EpollType = 1 << 6;
+pub const EPOLL_TYPE_EPOLLONESHOT: EpollType = 1 << 7;
+
+#[repr(transparent)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct EpollCtl(u32);
+/// Add an entry to the interest list of the epoll file descriptor, epfd.
+pub const EPOLL_CTL_ADD: EpollCtl = EpollCtl(0);
+/// Change the settings associated with fd in the interest list to the new settings specified in event.
+pub const EPOLL_CTL_MOD: EpollCtl = EpollCtl(1);
+/// Remove (deregister) the target file descriptor fd from the interest list.
+pub const EPOLL_CTL_DEL: EpollCtl = EpollCtl(2);
+impl EpollCtl {
+    pub const fn raw(&self) -> u32 {
+        self.0
+    }
+
+    pub fn name(&self) -> &'static str {
+        match self.0 {
+            0 => "ADD",
+            1 => "MOD",
+            2 => "DEL",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+    pub fn message(&self) -> &'static str {
+        match self.0 {0 => "Add an entry to the interest list of the epoll file descriptor, epfd.",1 => "Change the settings associated with fd in the interest list to the new settings specified in event.",2 => "Remove (deregister) the target file descriptor fd from the interest list.",_ => unsafe { core::hint::unreachable_unchecked() },}
+    }
+}
+impl fmt::Debug for EpollCtl {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("EpollCtl")
+            .field("code", &self.0)
+            .field("name", &self.name())
+            .field("message", &self.message())
+            .finish()
+    }
+}
+impl From<u32> for EpollCtl {
+    fn from(a: u32) -> Self {
+        Self(a)
+    }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct EpollData {
+    /// Pointer to some user defined data
+    pub ptr: Pointersize,
+    /// The file descriptor of the event
+    pub fd: Fd,
+    /// User data for the event
+    pub data1: u32,
+    /// User data for the event
+    pub data2: u64,
+}
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct EpollEvent {
+    /// The events that are triggered for this
+    pub events: EpollType,
+    /// The data of the event
+    pub data: EpollData,
+}
 /// Sets the time value of a clock.
 /// Note: This is similar to `clock_settime` in POSIX.
 ///
@@ -3764,499 +3835,72 @@ pub unsafe fn resolve(
     }
 }
 
-/// Registers a callback function for waking and dropping wakers passed
-/// into polling syscalls
+/// Create an epoll interest list
 ///
-/// ## Parameters
-///
-/// * `callback` - Exported function that will be called back when a waker has been triggered
-///   (if this is not specified the default will be "_wake")
-///   
-///   For the wake function it accepts 8xi64 numbers as parameters where each number
-///   represents what to do with the waker.
-///   > 0 means wake it up
-///   < 0 means drop it and release memory
-///   0 means noop
-///   
-pub unsafe fn callback_wake(callback: &str) {
-    wasix_64v1::callback_wake(callback.as_ptr() as i64, callback.len() as i64);
-}
-
-/// Read from a file descriptor.
-///
-/// If this read function would block it returns Errno::Pending instead
-/// and invokes the waker in the future.
-///
-/// ## Parameters
-///
-/// * `iovs` - List of scatter/gather vectors to which to store data.
-/// * `waker` - Waker that will be invoked when this function is ready to be polled again
 ///
 /// ## Return
 ///
-/// The number of bytes read.
-pub unsafe fn fd_read_poll(fd: Fd, iovs: IovecArray<'_>, waker: Waker) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasix_64v1::fd_read_poll(
-        fd as i32,
-        iovs.as_ptr() as i64,
-        iovs.len() as i64,
-        waker as i64,
-        rp0.as_mut_ptr() as i64,
-    );
-    match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
-        _ => Err(Errno(ret as u16)),
-    }
-}
-
-/// Write to a file descriptor.
-///
-/// If this write function would block it returns Errno::Pending instead
-/// and invokes the waker in the future.
-///
-/// ## Parameters
-///
-/// * `iovs` - List of scatter/gather vectors from which to retrieve data.
-/// * `waker` - Waker that will be invoked when this function is ready to be polled again
-pub unsafe fn fd_write_poll(fd: Fd, iovs: CiovecArray<'_>, waker: Waker) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasix_64v1::fd_write_poll(
-        fd as i32,
-        iovs.as_ptr() as i64,
-        iovs.len() as i64,
-        waker as i64,
-        rp0.as_mut_ptr() as i64,
-    );
-    match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
-        _ => Err(Errno(ret as u16)),
-    }
-}
-
-/// Wait for a futex_wake operation to wake us.
-///
-/// If this wait function would block it returns Errno::Pending instead
-/// and invokes the waker in the future.
-///
-/// Returns with EINVAL if the futex doesn't hold the expected value.
-/// Returns false on timeout, and true in all other cases.
-///
-/// ## Parameters
-///
-/// * `futex` - Memory location that holds the value that will be checked
-/// * `expected` - Expected value that should be currently held at the memory location
-/// * `timeout` - Timeout should the futex not be triggered in the allocated time
-/// * `waker` - Waker that will be invoked when this function is ready to be polled again
-pub unsafe fn futex_wait_poll(
-    futex: *mut u32,
-    expected: u32,
-    timeout: *const OptionTimestamp,
-    waker: Waker,
-) -> Result<Bool, Errno> {
-    let mut rp0 = MaybeUninit::<Bool>::uninit();
-    let ret = wasix_64v1::futex_wait_poll(
-        futex as i64,
-        expected as i32,
-        timeout as i64,
-        waker as i64,
-        rp0.as_mut_ptr() as i64,
-    );
-    match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Bool)),
-        _ => Err(Errno(ret as u16)),
-    }
-}
-
-/// Wait for process to exit
-///
-/// If this function would block it returns Errno::Pending instead
-/// and invokes the waker in the future.
-///
-/// Passing none to PID will mean that the call will wait
-/// for any subprocess to exit. PID will be populated with
-/// the process that exited.
-///
-/// ## Parameters
-///
-/// * `pid` - ID of the process to wait on
-/// * `flags` - Flags that determine how the join behaves
-/// * `waker` - Waker that will be invoked when this function is ready to be polled again
-///
-/// ## Return
-///
-/// Returns the status of the process
-pub unsafe fn proc_join_poll(
-    pid: *mut OptionPid,
-    flags: JoinFlags,
-    waker: Waker,
-) -> Result<JoinStatus, Errno> {
-    let mut rp0 = MaybeUninit::<JoinStatus>::uninit();
-    let ret = wasix_64v1::proc_join_poll(
-        pid as i64,
-        flags as i32,
-        waker as i64,
-        rp0.as_mut_ptr() as i64,
-    );
-    match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const JoinStatus)),
-        _ => Err(Errno(ret as u16)),
-    }
-}
-
-/// Accept a new incoming connection.
-///
-/// If this function would block it returns Errno::Pending instead
-/// and invokes the waker in the future.
-///
-/// ## Parameters
-///
-/// * `fd` - The listening socket.
-/// * `flags` - The desired values of the file descriptor flags.
-/// * `waker` - Waker that will be invoked when this function is ready to be polled again
-///
-/// ## Return
-///
-/// New socket connection
-pub unsafe fn sock_accept_poll(
-    fd: Fd,
-    flags: Fdflags,
-    waker: Waker,
-) -> Result<(Fd, AddrPort), Errno> {
+/// The file descriptor for this epoll interest list
+pub unsafe fn epoll_create() -> Result<Fd, Errno> {
     let mut rp0 = MaybeUninit::<Fd>::uninit();
-    let mut rp1 = MaybeUninit::<AddrPort>::uninit();
-    let ret = wasix_64v1::sock_accept_poll(
-        fd as i32,
-        flags as i32,
-        waker as i64,
-        rp0.as_mut_ptr() as i64,
-        rp1.as_mut_ptr() as i64,
-    );
+    let ret = wasix_64v1::epoll_create(rp0.as_mut_ptr() as i64);
     match ret {
-        0 => Ok((
-            core::ptr::read(rp0.as_mut_ptr() as i64 as *const Fd),
-            core::ptr::read(rp1.as_mut_ptr() as i64 as *const AddrPort),
-        )),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Fd)),
         _ => Err(Errno(ret as u16)),
     }
 }
 
-/// Polls if any connections are waiting to be accepted
+/// Modifies an epoll interest list
 ///
-/// If this function would block it returns Errno::Pending instead
-/// and invokes the waker in the future.
 ///
 /// ## Parameters
 ///
-/// * `fd` - The listening socket.
-/// * `waker` - Waker that will be invoked when this function is ready to be polled again
-///
-/// ## Return
-///
-/// Number of connections that are waiting
-pub unsafe fn sock_accept_ready_poll(fd: Fd, waker: Waker) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasix_64v1::sock_accept_ready_poll(fd as i32, waker as i64, rp0.as_mut_ptr() as i64);
-    match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
-        _ => Err(Errno(ret as u16)),
-    }
-}
-
-/// Receive a message and its peer address from a socket.
-///
-/// If this function would block it returns Errno::Pending instead
-/// and invokes the waker in the future.
-///
-/// ## Parameters
-///
-/// * `ri_data` - List of scatter/gather vectors to which to store data.
-/// * `ri_flags` - Message flags.
-/// * `waker` - Waker that will be invoked when this function is ready to be polled again
-///
-/// ## Return
-///
-/// Number of bytes stored in ri_data and message flags.
-pub unsafe fn sock_recv_from_poll(
-    fd: Fd,
-    ri_data: IovecArray<'_>,
-    ri_flags: Riflags,
-    waker: Waker,
-) -> Result<(Size, Roflags, AddrPort), Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
-    let mut rp1 = MaybeUninit::<Roflags>::uninit();
-    let mut rp2 = MaybeUninit::<AddrPort>::uninit();
-    let ret = wasix_64v1::sock_recv_from_poll(
-        fd as i32,
-        ri_data.as_ptr() as i64,
-        ri_data.len() as i64,
-        ri_flags as i32,
-        waker as i64,
-        rp0.as_mut_ptr() as i64,
-        rp1.as_mut_ptr() as i64,
-        rp2.as_mut_ptr() as i64,
-    );
-    match ret {
-        0 => Ok((
-            core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size),
-            core::ptr::read(rp1.as_mut_ptr() as i64 as *const Roflags),
-            core::ptr::read(rp2.as_mut_ptr() as i64 as *const AddrPort),
-        )),
-        _ => Err(Errno(ret as u16)),
-    }
-}
-
-/// Polls to receive a message from a socket.
-///
-/// If this function would block it returns Errno::Pending instead
-/// and invokes the waker in the future.
-///
-/// ## Parameters
-///
-/// * `ri_data` - List of scatter/gather vectors to which to store data.
-/// * `ri_flags` - Message flags.
-/// * `waker` - Waker that will be invoked when this function is ready to be polled again
-///
-/// ## Return
-///
-/// Number of bytes stored in ri_data and message flags.
-pub unsafe fn sock_recv_poll(
-    fd: Fd,
-    ri_data: IovecArray<'_>,
-    ri_flags: Riflags,
-    waker: Waker,
-) -> Result<(Size, Roflags), Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
-    let mut rp1 = MaybeUninit::<Roflags>::uninit();
-    let ret = wasix_64v1::sock_recv_poll(
-        fd as i32,
-        ri_data.as_ptr() as i64,
-        ri_data.len() as i64,
-        ri_flags as i32,
-        waker as i64,
-        rp0.as_mut_ptr() as i64,
-        rp1.as_mut_ptr() as i64,
-    );
-    match ret {
-        0 => Ok((
-            core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size),
-            core::ptr::read(rp1.as_mut_ptr() as i64 as *const Roflags),
-        )),
-        _ => Err(Errno(ret as u16)),
-    }
-}
-
-/// Polls if a message is waiting to be received
-///
-/// If this function would block it returns Errno::Pending instead
-/// and invokes the waker in the future.
-///
-/// ## Parameters
-///
-/// * `waker` - Waker that will be invoked when this function is ready to be polled again
-///
-/// ## Return
-///
-/// Number of bytes stored waiting to be received
-pub unsafe fn sock_recv_ready_poll(fd: Fd, waker: Waker) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasix_64v1::sock_recv_ready_poll(fd as i32, waker as i64, rp0.as_mut_ptr() as i64);
-    match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
-        _ => Err(Errno(ret as u16)),
-    }
-}
-
-/// Send a message on a socket.
-///
-/// If this function would block it returns Errno::Pending instead
-/// and invokes the waker in the future.
-///
-/// ## Parameters
-///
-/// * `si_data` - List of scatter/gather vectors to which to retrieve data
-/// * `si_flags` - Message flags.
-/// * `waker` - Waker that will be invoked when this function is ready to be polled again
-///
-/// ## Return
-///
-/// Number of bytes transmitted.
-pub unsafe fn sock_send_poll(
-    fd: Fd,
-    si_data: CiovecArray<'_>,
-    si_flags: Siflags,
-    waker: Waker,
-) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasix_64v1::sock_send_poll(
-        fd as i32,
-        si_data.as_ptr() as i64,
-        si_data.len() as i64,
-        si_flags as i32,
-        waker as i64,
-        rp0.as_mut_ptr() as i64,
-    );
-    match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
-        _ => Err(Errno(ret as u16)),
-    }
-}
-
-/// Polls if the socket is ready to send messages
-///
-/// If this function would block it returns Errno::Pending instead
-/// and invokes the waker in the future.
-///
-/// ## Parameters
-///
-/// * `waker` - Waker that will be invoked when this function is ready to be polled again
-///
-/// ## Return
-///
-/// Number of bytes that can be sent.
-pub unsafe fn sock_send_ready_poll(fd: Fd, waker: Waker) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasix_64v1::sock_send_ready_poll(fd as i32, waker as i64, rp0.as_mut_ptr() as i64);
-    match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
-        _ => Err(Errno(ret as u16)),
-    }
-}
-
-/// Send a message on a socket to a specific address.
-///
-/// If this function would block it returns Errno::Pending instead
-/// and invokes the waker in the future.
-///
-/// ## Parameters
-///
-/// * `si_data` - List of scatter/gather vectors to which to retrieve data
-/// * `si_flags` - Message flags.
-/// * `addr` - Address of the socket to send message to
-/// * `waker` - Waker that will be invoked when this function is ready to be polled again
-///
-/// ## Return
-///
-/// Number of bytes transmitted.
-pub unsafe fn sock_send_to_poll(
-    fd: Fd,
-    si_data: CiovecArray<'_>,
-    si_flags: Siflags,
-    addr: *const AddrPort,
-    waker: Waker,
-) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasix_64v1::sock_send_to_poll(
-        fd as i32,
-        si_data.as_ptr() as i64,
-        si_data.len() as i64,
-        si_flags as i32,
-        addr as i64,
-        waker as i64,
-        rp0.as_mut_ptr() as i64,
-    );
-    match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
-        _ => Err(Errno(ret as u16)),
-    }
-}
-
-/// Joins this thread with another thread, blocking this
-///
-/// If this function would block it returns Errno::Pending instead
-/// and invokes the waker in the future.
-///
-/// ## Parameters
-///
-/// * `tid` - Handle of the thread to wait on
-/// * `waker` - Waker that will be invoked when this function is ready to be polled again
-pub unsafe fn thread_join_poll(tid: Tid, waker: Waker) -> Result<(), Errno> {
-    let ret = wasix_64v1::thread_join_poll(tid as i32, waker as i64);
-    match ret {
-        0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
-    }
-}
-
-/// Sends the current thread to sleep for a period of time
-///
-/// If this function would block it returns Errno::Pending instead
-/// and invokes the waker in the future.
-///
-/// ## Parameters
-///
-/// * `duration` - Amount of time that the thread should sleep
-/// * `waker` - Waker that will be invoked when this function is ready to be polled again
-pub unsafe fn thread_sleep_poll(duration: Timestamp, waker: Waker) -> Result<(), Errno> {
-    let ret = wasix_64v1::thread_sleep_poll(duration as i64, waker as i64);
-    match ret {
-        0 => Ok(()),
-        _ => Err(Errno(ret as u16)),
-    }
-}
-
-/// Read from a file descriptor, without using and updating the file descriptor's offset.
-///
-/// If this function would block it returns Errno::Pending instead
-/// and invokes the waker in the future.
-///
-/// ## Parameters
-///
-/// * `iovs` - List of scatter/gather vectors in which to store data.
-/// * `offset` - The offset within the file at which to read.
-/// * `waker` - Waker that will be invoked when this function is ready to be polled again
-///
-/// ## Return
-///
-/// The number of bytes read.
-pub unsafe fn fd_pread_poll(
-    fd: Fd,
-    iovs: IovecArray<'_>,
-    offset: Filesize,
-    waker: Waker,
-) -> Result<Size, Errno> {
-    let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasix_64v1::fd_pread_poll(
-        fd as i32,
-        iovs.as_ptr() as i64,
-        iovs.len() as i64,
-        offset as i64,
-        waker as i64,
-        rp0.as_mut_ptr() as i64,
-    );
-    match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
-        _ => Err(Errno(ret as u16)),
-    }
-}
-
-/// Write to a file descriptor, without using and updating the file descriptor's offset.
-///
-/// If this function would block it returns Errno::Pending instead
-/// and invokes the waker in the future.
-///
-/// ## Parameters
-///
-/// * `iovs` - List of scatter/gather vectors from which to retrieve data.
-/// * `offset` - The offset within the file at which to write.
-/// * `waker` - Waker that will be invoked when this function is ready to be polled again
+/// * `epfd` - File descriptor of the epoll interest list
+/// * `op` - Operation to be made on the list
+/// * `fd` - File descriptor to be added, deleted or modified
+/// * `event` - Reference to the event to be added, deleted or modified
 ///
 /// ## Return
 ///
 /// The number of bytes written.
-pub unsafe fn fd_pwrite_poll(
+pub unsafe fn epoll_ctl(
+    epfd: Fd,
+    op: EpollCtl,
     fd: Fd,
-    iovs: CiovecArray<'_>,
-    offset: Filesize,
-    waker: Waker,
+    event: *const EpollEvent,
+) -> Result<(), Errno> {
+    let ret = wasix_64v1::epoll_ctl(epfd as i32, op.0 as i32, fd as i32, event as i64);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// wait for an I/O event on an epoll file descriptor
+///
+///
+/// ## Parameters
+///
+/// * `epfd` - File descriptor of the epoll interest list
+/// * `event` - Reference to the array of events
+/// * `maxevents` - Maximum number of events that will be returned in the array
+/// * `timeout` - Timeout for the wait event
+///
+/// ## Return
+///
+/// The number of events returned.
+pub unsafe fn epoll_wait(
+    epfd: Fd,
+    event: *mut EpollEvent,
+    maxevents: Size,
+    timeout: Timestamp,
 ) -> Result<Size, Errno> {
     let mut rp0 = MaybeUninit::<Size>::uninit();
-    let ret = wasix_64v1::fd_pwrite_poll(
-        fd as i32,
-        iovs.as_ptr() as i64,
-        iovs.len() as i64,
-        offset as i64,
-        waker as i64,
+    let ret = wasix_64v1::epoll_wait(
+        epfd as i32,
+        event as i64,
+        maxevents as i32,
+        timeout as i64,
         rp0.as_mut_ptr() as i64,
     );
     match ret {
@@ -4537,141 +4181,14 @@ pub mod wasix_64v1 {
         /// IPv4 and/or IPv6 addresses. Each address entry consists of a addr_t object.
         /// This function fills the output buffer as much as possible.
         pub fn resolve(arg0: i64, arg1: i64, arg2: i32, arg3: i64, arg4: i32, arg5: i64) -> i32;
-        /// Registers a callback function for waking and dropping wakers passed
-        /// into polling syscalls
-        pub fn callback_wake(arg0: i64, arg1: i64);
-        /// Read from a file descriptor.
+        /// Create an epoll interest list
         ///
-        /// If this read function would block it returns Errno::Pending instead
-        /// and invokes the waker in the future.
-        pub fn fd_read_poll(arg0: i32, arg1: i64, arg2: i64, arg3: i64, arg4: i64) -> i32;
-        /// Write to a file descriptor.
+        pub fn epoll_create(arg0: i64) -> i32;
+        /// Modifies an epoll interest list
         ///
-        /// If this write function would block it returns Errno::Pending instead
-        /// and invokes the waker in the future.
-        pub fn fd_write_poll(arg0: i32, arg1: i64, arg2: i64, arg3: i64, arg4: i64) -> i32;
-        /// Wait for a futex_wake operation to wake us.
+        pub fn epoll_ctl(arg0: i32, arg1: i32, arg2: i32, arg3: i64) -> i32;
+        /// wait for an I/O event on an epoll file descriptor
         ///
-        /// If this wait function would block it returns Errno::Pending instead
-        /// and invokes the waker in the future.
-        ///
-        /// Returns with EINVAL if the futex doesn't hold the expected value.
-        /// Returns false on timeout, and true in all other cases.
-        pub fn futex_wait_poll(arg0: i64, arg1: i32, arg2: i64, arg3: i64, arg4: i64) -> i32;
-        /// Wait for process to exit
-        ///
-        /// If this function would block it returns Errno::Pending instead
-        /// and invokes the waker in the future.
-        ///
-        /// Passing none to PID will mean that the call will wait
-        /// for any subprocess to exit. PID will be populated with
-        /// the process that exited.
-        pub fn proc_join_poll(arg0: i64, arg1: i32, arg2: i64, arg3: i64) -> i32;
-        /// Accept a new incoming connection.
-        ///
-        /// If this function would block it returns Errno::Pending instead
-        /// and invokes the waker in the future.
-        pub fn sock_accept_poll(arg0: i32, arg1: i32, arg2: i64, arg3: i64, arg4: i64) -> i32;
-        /// Polls if any connections are waiting to be accepted
-        ///
-        /// If this function would block it returns Errno::Pending instead
-        /// and invokes the waker in the future.
-        pub fn sock_accept_ready_poll(arg0: i32, arg1: i64, arg2: i64) -> i32;
-        /// Receive a message and its peer address from a socket.
-        ///
-        /// If this function would block it returns Errno::Pending instead
-        /// and invokes the waker in the future.
-        pub fn sock_recv_from_poll(
-            arg0: i32,
-            arg1: i64,
-            arg2: i64,
-            arg3: i32,
-            arg4: i64,
-            arg5: i64,
-            arg6: i64,
-            arg7: i64,
-        ) -> i32;
-        /// Polls to receive a message from a socket.
-        ///
-        /// If this function would block it returns Errno::Pending instead
-        /// and invokes the waker in the future.
-        pub fn sock_recv_poll(
-            arg0: i32,
-            arg1: i64,
-            arg2: i64,
-            arg3: i32,
-            arg4: i64,
-            arg5: i64,
-            arg6: i64,
-        ) -> i32;
-        /// Polls if a message is waiting to be received
-        ///
-        /// If this function would block it returns Errno::Pending instead
-        /// and invokes the waker in the future.
-        pub fn sock_recv_ready_poll(arg0: i32, arg1: i64, arg2: i64) -> i32;
-        /// Send a message on a socket.
-        ///
-        /// If this function would block it returns Errno::Pending instead
-        /// and invokes the waker in the future.
-        pub fn sock_send_poll(
-            arg0: i32,
-            arg1: i64,
-            arg2: i64,
-            arg3: i32,
-            arg4: i64,
-            arg5: i64,
-        ) -> i32;
-        /// Polls if the socket is ready to send messages
-        ///
-        /// If this function would block it returns Errno::Pending instead
-        /// and invokes the waker in the future.
-        pub fn sock_send_ready_poll(arg0: i32, arg1: i64, arg2: i64) -> i32;
-        /// Send a message on a socket to a specific address.
-        ///
-        /// If this function would block it returns Errno::Pending instead
-        /// and invokes the waker in the future.
-        pub fn sock_send_to_poll(
-            arg0: i32,
-            arg1: i64,
-            arg2: i64,
-            arg3: i32,
-            arg4: i64,
-            arg5: i64,
-            arg6: i64,
-        ) -> i32;
-        /// Joins this thread with another thread, blocking this
-        ///
-        /// If this function would block it returns Errno::Pending instead
-        /// and invokes the waker in the future.
-        pub fn thread_join_poll(arg0: i32, arg1: i64) -> i32;
-        /// Sends the current thread to sleep for a period of time
-        ///
-        /// If this function would block it returns Errno::Pending instead
-        /// and invokes the waker in the future.
-        pub fn thread_sleep_poll(arg0: i64, arg1: i64) -> i32;
-        /// Read from a file descriptor, without using and updating the file descriptor's offset.
-        ///
-        /// If this function would block it returns Errno::Pending instead
-        /// and invokes the waker in the future.
-        pub fn fd_pread_poll(
-            arg0: i32,
-            arg1: i64,
-            arg2: i64,
-            arg3: i64,
-            arg4: i64,
-            arg5: i64,
-        ) -> i32;
-        /// Write to a file descriptor, without using and updating the file descriptor's offset.
-        ///
-        /// If this function would block it returns Errno::Pending instead
-        /// and invokes the waker in the future.
-        pub fn fd_pwrite_poll(
-            arg0: i32,
-            arg1: i64,
-            arg2: i64,
-            arg3: i64,
-            arg4: i64,
-            arg5: i64,
-        ) -> i32;
+        pub fn epoll_wait(arg0: i32, arg1: i64, arg2: i32, arg3: i64, arg4: i64) -> i32;
     }
 }
