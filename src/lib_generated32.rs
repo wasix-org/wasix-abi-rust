@@ -2272,8 +2272,13 @@ pub struct AddrIp6 {
     pub h1: u16,
     pub h2: u16,
     pub h3: u16,
-    pub flow_info: u32,
-    pub scope_id: u32,
+    /// flow_info1 contains the most significant two bytes, and comes first in keeping with all wasix syscalls being little endian
+    pub flow_info1: u16,
+    /// flow_info0 contains the least significant two bytes
+    pub flow_info0: u16,
+    /// Same as flow_info1 and flow_info0
+    pub scope_id1: u16,
+    pub scope_id0: u16,
 }
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
