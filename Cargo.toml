@@ -1,6 +1,6 @@
 [package]
 name = "wasix"
-version = "0.12.21"
+version = "0.13.0"
 authors = ["The Cranelift Project Developers", "john-sharratt"]
 license = "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT"
 description = "WASIX API bindings for Rust"
@@ -20,9 +20,14 @@ wasi = { version = "0.11.0", default-features = false }
 
 [features]
 default = ["std"]
-std = [ "wasi/std" ]
+std = ["wasi/std"]
 # Unstable feature to support being a libstd dependency
-rustc-dep-of-std = ["compiler_builtins", "core", "rustc-std-workspace-alloc", "wasi/rustc-dep-of-std"]
+rustc-dep-of-std = [
+    "compiler_builtins",
+    "core",
+    "rustc-std-workspace-alloc",
+    "wasi/rustc-dep-of-std",
+]
 
 [badges]
 maintenance = { status = "experimental" }

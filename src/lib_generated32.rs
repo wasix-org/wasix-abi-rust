@@ -829,6 +829,56 @@ impl From<u8> for Signal {
     }
 }
 
+#[repr(transparent)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct Disposition(u8);
+/// Default action.
+pub const DISPOSITION_DEFAULT: Disposition = Disposition(0);
+/// Ignore the signal.
+pub const DISPOSITION_IGNORE: Disposition = Disposition(1);
+impl Disposition {
+    pub const fn raw(&self) -> u8 {
+        self.0
+    }
+
+    pub fn name(&self) -> &'static str {
+        match self.0 {
+            0 => "DEFAULT",
+            1 => "IGNORE",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+    pub fn message(&self) -> &'static str {
+        match self.0 {
+            0 => "Default action.",
+            1 => "Ignore the signal.",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+}
+impl fmt::Debug for Disposition {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Disposition")
+            .field("code", &self.0)
+            .field("name", &self.name())
+            .field("message", &self.message())
+            .finish()
+    }
+}
+impl From<u8> for Disposition {
+    fn from(a: u8) -> Self {
+        Self(a)
+    }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct SignalDisposition {
+    pub sig: Signal,
+    pub disp: Disposition,
+}
+pub type SignalDispositionArray<'a> = &'a [SignalDisposition];
+
 pub type Longsize = u64;
 pub type ShortHash = u64;
 #[repr(C)]
@@ -993,6 +1043,10 @@ impl From<u8> for Bool {
 pub type Eventfdflags = u16;
 /// Indicates if this event file description will run as a semaphore
 pub const EVENTFDFLAGS_SEMAPHORE: Eventfdflags = 1 << 0;
+
+pub type Fdflagsext = u16;
+/// Close this file in the child process when spawning one.
+pub const FDFLAGSEXT_CLOEXEC: Fdflagsext = 1 << 0;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -2224,6 +2278,56 @@ impl From<u8> for AddressFamily {
     }
 }
 
+#[repr(transparent)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct AddressFamilyIp(u8);
+/// Unspecified - this is unused, but this enum must be
+/// backwards-compatible with $address_family
+pub const ADDRESS_FAMILY_IP_UNSPEC: AddressFamilyIp = AddressFamilyIp(0);
+/// IP v4
+pub const ADDRESS_FAMILY_IP_INET4: AddressFamilyIp = AddressFamilyIp(1);
+/// IP v6
+pub const ADDRESS_FAMILY_IP_INET6: AddressFamilyIp = AddressFamilyIp(2);
+impl AddressFamilyIp {
+    pub const fn raw(&self) -> u8 {
+        self.0
+    }
+
+    pub fn name(&self) -> &'static str {
+        match self.0 {
+            0 => "UNSPEC",
+            1 => "INET4",
+            2 => "INET6",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+    pub fn message(&self) -> &'static str {
+        match self.0 {
+            0 => {
+                "Unspecified - this is unused, but this enum must be
+backwards-compatible with $address_family"
+            }
+            1 => "IP v4",
+            2 => "IP v6",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+}
+impl fmt::Debug for AddressFamilyIp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AddressFamilyIp")
+            .field("code", &self.0)
+            .field("name", &self.name())
+            .field("message", &self.message())
+            .finish()
+    }
+}
+impl From<u8> for AddressFamilyIp {
+    fn from(a: u8) -> Self {
+        Self(a)
+    }
+}
+
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct AddrUnspec {
@@ -2279,6 +2383,18 @@ pub struct AddrIp6 {
     /// Same as flow_info1 and flow_info0
     pub scope_id1: u16,
     pub scope_id0: u16,
+}
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct AddrIp6Bare {
+    pub n0: u16,
+    pub n1: u16,
+    pub n2: u16,
+    pub n3: u16,
+    pub h0: u16,
+    pub h1: u16,
+    pub h2: u16,
+    pub h3: u16,
 }
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -2424,6 +2540,20 @@ pub struct Addr {
     pub u: AddrU,
 }
 
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union AddrIpU {
+    pub unspec: AddrUnspec,
+    pub inet4: AddrIp4,
+    pub inet6: AddrIp6Bare,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct AddrIp {
+    pub tag: u8,
+    pub u: AddrIpU,
+}
+
 pub type AddrArray<'a> = &'a [Addr];
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -2464,27 +2594,6 @@ pub struct Route {
     pub via_router: Addr,
     pub preferred_until: OptionTimestamp,
     pub expires_at: OptionTimestamp,
-}
-#[repr(C)]
-#[derive(Copy, Clone, Debug)]
-pub struct HttpHandles {
-    /// File handle used to write the request data
-    pub request: Fd,
-    /// File handle used to receive the response data
-    pub response: Fd,
-    /// File handle used to read the response headers
-    /// (entries are separated by line feeds)
-    pub headers: Fd,
-}
-#[repr(C)]
-#[derive(Copy, Clone, Debug)]
-pub struct HttpStatus {
-    pub ok: Bool,
-    pub redirected: Bool,
-    /// Size of the response
-    pub size: Filesize,
-    /// HTTP status code for this response
-    pub status: u16,
 }
 pub type JoinFlags = u32;
 /// Non-blocking join on the process
@@ -2703,6 +2812,76 @@ pub struct EpollEvent {
     /// The data of the event
     pub data: EpollData,
 }
+#[repr(transparent)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct ProcSpawnFdOpName(u8);
+/// Close an FD.
+pub const PROC_SPAWN_FD_OP_NAME_CLOSE: ProcSpawnFdOpName = ProcSpawnFdOpName(0);
+/// Duplicate (i.e. renumber) an FD.
+pub const PROC_SPAWN_FD_OP_NAME_DUP2: ProcSpawnFdOpName = ProcSpawnFdOpName(1);
+/// Open a file.
+pub const PROC_SPAWN_FD_OP_NAME_OPEN: ProcSpawnFdOpName = ProcSpawnFdOpName(2);
+/// Change directory to a path.
+pub const PROC_SPAWN_FD_OP_NAME_CHDIR: ProcSpawnFdOpName = ProcSpawnFdOpName(3);
+/// Change directory to an FD.
+pub const PROC_SPAWN_FD_OP_NAME_FCHDIR: ProcSpawnFdOpName = ProcSpawnFdOpName(4);
+impl ProcSpawnFdOpName {
+    pub const fn raw(&self) -> u8 {
+        self.0
+    }
+
+    pub fn name(&self) -> &'static str {
+        match self.0 {
+            0 => "CLOSE",
+            1 => "DUP2",
+            2 => "OPEN",
+            3 => "CHDIR",
+            4 => "FCHDIR",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+    pub fn message(&self) -> &'static str {
+        match self.0 {
+            0 => "Close an FD.",
+            1 => "Duplicate (i.e. renumber) an FD.",
+            2 => "Open a file.",
+            3 => "Change directory to a path.",
+            4 => "Change directory to an FD.",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+}
+impl fmt::Debug for ProcSpawnFdOpName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ProcSpawnFdOpName")
+            .field("code", &self.0)
+            .field("name", &self.name())
+            .field("message", &self.message())
+            .finish()
+    }
+}
+impl From<u8> for ProcSpawnFdOpName {
+    fn from(a: u8) -> Self {
+        Self(a)
+    }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct ProcSpawnFdOp {
+    pub cmd: ProcSpawnFdOpName,
+    pub fd: Fd,
+    pub src_fd: Fd,
+    pub path: *mut u8,
+    pub path_len: Pointersize,
+    pub dirflags: Lookupflags,
+    pub oflags: Oflags,
+    pub fs_rights_base: Rights,
+    pub fs_rights_inheriting: Rights,
+    pub fdflags: Fdflags,
+    pub fdflagsext: Fdflagsext,
+}
+pub type ProcSpawnFdOpArray<'a> = &'a [ProcSpawnFdOp];
 /// Sets the time value of a clock.
 /// Note: This is similar to `clock_settime` in POSIX.
 ///
@@ -2726,6 +2905,21 @@ pub unsafe fn clock_time_set(id: Clockid, timestamp: Timestamp) -> Result<(), Er
 pub unsafe fn fd_dup(fd: Fd) -> Result<Fd, Errno> {
     let mut rp0 = MaybeUninit::<Fd>::uninit();
     let ret = wasix_32v1::fd_dup(fd as i32, rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Atomically duplicate a file handle.
+pub unsafe fn fd_dup2(fd: Fd, min_result_fd: Fd, cloexec: Bool) -> Result<Fd, Errno> {
+    let mut rp0 = MaybeUninit::<Fd>::uninit();
+    let ret = wasix_32v1::fd_dup2(
+        fd as i32,
+        min_result_fd as i32,
+        cloexec.0 as i32,
+        rp0.as_mut_ptr() as i32,
+    );
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd)),
         _ => Err(Errno(ret as u16)),
@@ -3013,6 +3207,91 @@ pub unsafe fn stack_restore(snapshot: *const StackSnapshot, val: Longsize) {
     wasix_32v1::stack_restore(snapshot as i32, val as i64);
 }
 
+/// Open a file or directory.
+/// The returned file descriptor is not guaranteed to be the lowest-numbered
+/// file descriptor not currently open; it is randomized to prevent
+/// applications from depending on making assumptions about indexes, since this
+/// is error-prone in multi-threaded contexts. The returned file descriptor is
+/// guaranteed to be less than 2**31.
+/// Note: This is similar to `openat` in POSIX.
+/// Recreated in WASIX from the original WASI function to add support for
+/// fdflagsext.
+///
+/// ## Parameters
+///
+/// * `dirflags` - Flags determining the method of how the path is resolved.
+/// * `path` - The relative path of the file or directory to open, relative to the
+///   `path_open::fd` directory.
+/// * `oflags` - The method by which to open the file.
+/// * `fs_rights_base` - The initial rights of the newly created file descriptor. The
+///   implementation is allowed to return a file descriptor with fewer rights
+///   than specified, if and only if those rights do not apply to the type of
+///   file being opened.
+///   The *base* rights are rights that will apply to operations using the file
+///   descriptor itself, while the *inheriting* rights are rights that apply to
+///   file descriptors derived from it.
+///
+/// ## Return
+///
+/// The file descriptor of the file that has been opened.
+pub unsafe fn path_open2(
+    fd: Fd,
+    dirflags: Lookupflags,
+    path: &str,
+    oflags: Oflags,
+    fs_rights_base: Rights,
+    fs_rights_inheriting: Rights,
+    fdflags: Fdflags,
+    fdflagsext: Fdflagsext,
+) -> Result<Fd, Errno> {
+    let mut rp0 = MaybeUninit::<Fd>::uninit();
+    let ret = wasix_32v1::path_open2(
+        fd as i32,
+        dirflags as i32,
+        path.as_ptr() as i32,
+        path.len() as i32,
+        oflags as i32,
+        fs_rights_base as i64,
+        fs_rights_inheriting as i64,
+        fdflags as i32,
+        fdflagsext as i32,
+        rp0.as_mut_ptr() as i32,
+    );
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Get the FD flags of a file descriptor (fdflagsext).
+/// Note: This returns similar flags to `fsync(fd, F_GETFD)` in POSIX.
+///
+/// ## Return
+///
+/// The buffer where the file descriptor's attributes are stored.
+pub unsafe fn fd_fdflags_get(fd: Fd) -> Result<Fdflagsext, Errno> {
+    let mut rp0 = MaybeUninit::<Fdflagsext>::uninit();
+    let ret = wasix_32v1::fd_fdflags_get(fd as i32, rp0.as_mut_ptr() as i32);
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fdflagsext)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Adjust the FD flags associated with a file descriptor.
+/// Note: This is similar to `fcntl(fd, F_SETFD, flags)` in POSIX.
+///
+/// ## Parameters
+///
+/// * `flags` - The desired values of the file descriptor flags.
+pub unsafe fn fd_fdflags_set(fd: Fd, flags: Fdflagsext) -> Result<(), Errno> {
+    let ret = wasix_32v1::fd_fdflags_set(fd as i32, flags as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
 /// Send a signal to the process of the calling thread on a regular basis
 /// Note: This is similar to `setitimer` in POSIX.
 ///
@@ -3052,7 +3331,7 @@ pub unsafe fn proc_fork(copy_memory: Bool) -> Result<Pid, Errno> {
     }
 }
 
-/// execve()  executes  the  program  referred to by pathname.  This causes the
+/// execv()  executes  the  program  referred to by pathname.  This causes the
 /// program that is currently being run by the calling process to  be  replaced
 /// with  a  new  program, with newly initialized stack, heap, and (initialized
 /// and uninitialized) data segments
@@ -3071,6 +3350,75 @@ pub unsafe fn proc_exec(name: &str, args: &str) {
         args.as_ptr() as i32,
         args.len() as i32,
     );
+}
+
+/// execve()  executes  the  program  referred to by pathname.  This causes the
+/// program that is currently being run by the calling process to  be  replaced
+/// with  a  new  program, with newly initialized stack, heap, and (initialized
+/// and uninitialized) data segments
+///
+/// If the named process does not exist then the process will fail and terminate
+///
+/// ## Parameters
+///
+/// * `name` - Name of the process to be spawned
+/// * `args` - List of the arguments to pass the process
+///   (entries are separated by line feeds)
+/// * `envs` - List of the env vars to pass the process
+///   (entries are separated by line feeds)
+pub unsafe fn proc_exec2(name: &str, args: &str, envs: &str) {
+    wasix_32v1::proc_exec2(
+        name.as_ptr() as i32,
+        name.len() as i32,
+        args.as_ptr() as i32,
+        args.len() as i32,
+        envs.as_ptr() as i32,
+        envs.len() as i32,
+    );
+}
+
+/// execve()  executes  the  program  referred to by pathname.  This causes the
+/// program that is currently being run by the calling process to  be  replaced
+/// with  a  new  program, with newly initialized stack, heap, and (initialized
+/// and uninitialized) data segments.
+///
+/// If the named process does not exist an error will be returned.
+///
+/// ## Parameters
+///
+/// * `name` - Name of the process to be spawned
+/// * `args` - List of the arguments to pass the process
+///   (entries are separated by line feeds)
+/// * `envs` - List of the env vars to pass the process
+///   (entries are separated by line feeds)
+/// * `search_path` - Whether to search for the file in PATH.
+/// * `path` - The current value of the PATH env var.
+///
+/// ## Return
+///
+/// If the named process does not exist an error will be returned.
+pub unsafe fn proc_exec3(
+    name: &str,
+    args: &str,
+    envs: &str,
+    search_path: Bool,
+    path: &str,
+) -> Result<(), Errno> {
+    let ret = wasix_32v1::proc_exec3(
+        name.as_ptr() as i32,
+        name.len() as i32,
+        args.as_ptr() as i32,
+        args.len() as i32,
+        envs.as_ptr() as i32,
+        envs.len() as i32,
+        search_path.0 as i32,
+        path.as_ptr() as i32,
+        path.len() as i32,
+    );
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
 }
 
 /// Spawns a new process within the context of the parent process
@@ -3124,6 +3472,59 @@ pub unsafe fn proc_spawn(
         0 => Ok(core::ptr::read(
             rp0.as_mut_ptr() as i32 as *const ProcessHandles
         )),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Spawns a new process within the context of the parent process
+/// (i.e. this process). It inherits the filesystem and sandbox
+/// permissions but runs standalone.
+///
+/// ## Parameters
+///
+/// * `name` - Name of the process to be spawned
+/// * `args` - List of the arguments to pass the process
+///   (entries are separated by line feeds)
+/// * `envs` - List of the env vars to pass the process
+///   (entries are separated by line feeds)
+/// * `fd_ops` - List of FD operations to perform before
+///   spawning the new process.
+/// * `signal_dispositions` - List of signal dispositions to override
+///   for the new process.
+/// * `search_path` - Whether to search for the file in PATH.
+/// * `path` - The current value of the PATH env var.
+///
+/// ## Return
+///
+/// If the named process does not exist an error will be returned.
+pub unsafe fn proc_spawn2(
+    name: &str,
+    args: &str,
+    envs: &str,
+    fd_ops: ProcSpawnFdOpArray<'_>,
+    signal_dispositions: SignalDispositionArray<'_>,
+    search_path: Bool,
+    path: &str,
+) -> Result<Pid, Errno> {
+    let mut rp0 = MaybeUninit::<Pid>::uninit();
+    let ret = wasix_32v1::proc_spawn2(
+        name.as_ptr() as i32,
+        name.len() as i32,
+        args.as_ptr() as i32,
+        args.len() as i32,
+        envs.as_ptr() as i32,
+        envs.len() as i32,
+        fd_ops.as_ptr() as i32,
+        fd_ops.len() as i32,
+        signal_dispositions.as_ptr() as i32,
+        signal_dispositions.len() as i32,
+        search_path.0 as i32,
+        path.as_ptr() as i32,
+        path.len() as i32,
+        rp0.as_mut_ptr() as i32,
+    );
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Pid)),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -3189,77 +3590,34 @@ pub unsafe fn proc_signal(pid: Pid, signal: Signal) -> Result<(), Errno> {
     }
 }
 
-/// Connects to a websocket at a particular network URL
-///
-/// ## Parameters
-///
-/// * `url` - URL of the web socket destination to connect to
-///
-/// ## Return
-///
-/// Returns a socket handle which is used to send and receive data
-pub unsafe fn ws_connect(url: &str) -> Result<Fd, Errno> {
-    let mut rp0 = MaybeUninit::<Fd>::uninit();
-    let ret = wasix_32v1::ws_connect(
-        url.as_ptr() as i32,
-        url.len() as i32,
-        rp0.as_mut_ptr() as i32,
-    );
+/// Read host-provided signal dispositions.
+/// The size of the array should match that returned by `proc_signals_sizes_get`.
+pub unsafe fn proc_signals_get(buf: *mut u8) -> Result<(), Errno> {
+    let ret = wasix_32v1::proc_signals_get(buf as i32);
     match ret {
-        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd)),
+        0 => Ok(()),
         _ => Err(Errno(ret as u16)),
     }
 }
 
-/// Makes a HTTP request to a remote web resource and
-/// returns a socket handles that are used to send and receive data
-///
-/// ## Parameters
-///
-/// * `url` - URL of the HTTP resource to connect to
-/// * `method` - HTTP method to be invoked
-/// * `headers` - HTTP headers to attach to the request
-///   (headers seperated by lines)
-/// * `gzip` - Should the request body be compressed
+/// Return host-provided signal count.
 ///
 /// ## Return
 ///
-/// The body of the response can be streamed from the returned
-/// file handle
-pub unsafe fn http_request(
-    url: &str,
-    method: &str,
-    headers: &str,
-    gzip: Bool,
-) -> Result<HttpHandles, Errno> {
-    let mut rp0 = MaybeUninit::<HttpHandles>::uninit();
-    let ret = wasix_32v1::http_request(
-        url.as_ptr() as i32,
-        url.len() as i32,
-        method.as_ptr() as i32,
-        method.len() as i32,
-        headers.as_ptr() as i32,
-        headers.len() as i32,
-        gzip.0 as i32,
-        rp0.as_mut_ptr() as i32,
-    );
+/// Returns the number of signal dispositions, or an error.
+pub unsafe fn proc_signals_sizes_get() -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
+    let ret = wasix_32v1::proc_signals_sizes_get(rp0.as_mut_ptr() as i32);
     match ret {
-        0 => Ok(core::ptr::read(
-            rp0.as_mut_ptr() as i32 as *const HttpHandles
-        )),
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Size)),
         _ => Err(Errno(ret as u16)),
     }
 }
 
-/// Retrieves the status of a HTTP request
-///
-/// ## Parameters
-///
-/// * `fd` - Handle of the HTTP request
-/// * `status` - Pointer to a buffer that will be filled with the current
-///   status of this HTTP request
-pub unsafe fn http_status(fd: Fd, status: *mut HttpStatus) -> Result<(), Errno> {
-    let ret = wasix_32v1::http_status(fd as i32, status as i32);
+/// Explicitly requests for the runtime to create a
+/// snapshot of the guest module's state.
+pub unsafe fn proc_snapshot() -> Result<(), Errno> {
+    let ret = wasix_32v1::proc_snapshot();
     match ret {
         0 => Ok(()),
         _ => Err(Errno(ret as u16)),
@@ -3523,6 +3881,47 @@ pub unsafe fn sock_open(
     );
     match ret {
         0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Create a pair of interconnected sockets.
+///
+/// creates a pair of interconnected sockets and returns both file
+/// descriptors. The file descriptors returned by a successful
+/// call will be the lowest-numbered file descriptors not currently open
+/// for the process.
+///
+/// Note: This is similar to `socketpair` in POSIX using PF_INET
+///
+/// ## Parameters
+///
+/// * `af` - Address family
+/// * `socktype` - Socket type, either datagram or stream
+/// * `sock_proto` - Socket protocol
+///
+/// ## Return
+///
+/// The file descriptors of the sockets that have been opened.
+pub unsafe fn sock_pair(
+    af: AddressFamily,
+    socktype: SockType,
+    sock_proto: SockProto,
+) -> Result<(Fd, Fd), Errno> {
+    let mut rp0 = MaybeUninit::<Fd>::uninit();
+    let mut rp1 = MaybeUninit::<Fd>::uninit();
+    let ret = wasix_32v1::sock_pair(
+        af.0 as i32,
+        socktype.0 as i32,
+        sock_proto.0 as i32,
+        rp0.as_mut_ptr() as i32,
+        rp1.as_mut_ptr() as i32,
+    );
+    match ret {
+        0 => Ok((
+            core::ptr::read(rp0.as_mut_ptr() as i32 as *const Fd),
+            core::ptr::read(rp1.as_mut_ptr() as i32 as *const Fd),
+        )),
         _ => Err(Errno(ret as u16)),
     }
 }
@@ -3909,7 +4308,7 @@ pub unsafe fn sock_send_file(
 pub unsafe fn resolve(
     host: &str,
     port: u16,
-    addrs: *mut Addr,
+    addrs: *mut AddrIp,
     naddrs: Size,
 ) -> Result<Size, Errno> {
     let mut rp0 = MaybeUninit::<Size>::uninit();
@@ -4009,6 +4408,8 @@ pub mod wasix_32v1 {
         pub fn clock_time_set(arg0: i32, arg1: i64) -> i32;
         /// Atomically duplicate a file handle.
         pub fn fd_dup(arg0: i32, arg1: i32) -> i32;
+        /// Atomically duplicate a file handle.
+        pub fn fd_dup2(arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> i32;
         /// Creates a file handle for event notifications
         ///
         pub fn fd_event(arg0: i64, arg1: i32, arg2: i32) -> i32;
@@ -4078,6 +4479,33 @@ pub mod wasix_32v1 {
         ///
         /// This function will manipulate the __stack_pointer global
         pub fn stack_restore(arg0: i32, arg1: i64) -> !;
+        /// Open a file or directory.
+        /// The returned file descriptor is not guaranteed to be the lowest-numbered
+        /// file descriptor not currently open; it is randomized to prevent
+        /// applications from depending on making assumptions about indexes, since this
+        /// is error-prone in multi-threaded contexts. The returned file descriptor is
+        /// guaranteed to be less than 2**31.
+        /// Note: This is similar to `openat` in POSIX.
+        /// Recreated in WASIX from the original WASI function to add support for
+        /// fdflagsext.
+        pub fn path_open2(
+            arg0: i32,
+            arg1: i32,
+            arg2: i32,
+            arg3: i32,
+            arg4: i32,
+            arg5: i64,
+            arg6: i64,
+            arg7: i32,
+            arg8: i32,
+            arg9: i32,
+        ) -> i32;
+        /// Get the FD flags of a file descriptor (fdflagsext).
+        /// Note: This returns similar flags to `fsync(fd, F_GETFD)` in POSIX.
+        pub fn fd_fdflags_get(arg0: i32, arg1: i32) -> i32;
+        /// Adjust the FD flags associated with a file descriptor.
+        /// Note: This is similar to `fcntl(fd, F_SETFD, flags)` in POSIX.
+        pub fn fd_fdflags_set(arg0: i32, arg1: i32) -> i32;
         /// Send a signal to the process of the calling thread on a regular basis
         /// Note: This is similar to `setitimer` in POSIX.
         pub fn proc_raise_interval(arg0: i32, arg1: i64, arg2: i32) -> i32;
@@ -4085,13 +4513,37 @@ pub mod wasix_32v1 {
         /// returns a zero then its the new subprocess. If it returns a positive
         /// number then its the current process and the $pid represents the child.
         pub fn proc_fork(arg0: i32, arg1: i32) -> i32;
-        /// execve()  executes  the  program  referred to by pathname.  This causes the
+        /// execv()  executes  the  program  referred to by pathname.  This causes the
         /// program that is currently being run by the calling process to  be  replaced
         /// with  a  new  program, with newly initialized stack, heap, and (initialized
         /// and uninitialized) data segments
         ///
         /// If the named process does not exist then the process will fail and terminate
         pub fn proc_exec(arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> !;
+        /// execve()  executes  the  program  referred to by pathname.  This causes the
+        /// program that is currently being run by the calling process to  be  replaced
+        /// with  a  new  program, with newly initialized stack, heap, and (initialized
+        /// and uninitialized) data segments
+        ///
+        /// If the named process does not exist then the process will fail and terminate
+        pub fn proc_exec2(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32, arg5: i32) -> !;
+        /// execve()  executes  the  program  referred to by pathname.  This causes the
+        /// program that is currently being run by the calling process to  be  replaced
+        /// with  a  new  program, with newly initialized stack, heap, and (initialized
+        /// and uninitialized) data segments.
+        ///
+        /// If the named process does not exist an error will be returned.
+        pub fn proc_exec3(
+            arg0: i32,
+            arg1: i32,
+            arg2: i32,
+            arg3: i32,
+            arg4: i32,
+            arg5: i32,
+            arg6: i32,
+            arg7: i32,
+            arg8: i32,
+        ) -> i32;
         /// Spawns a new process within the context of the parent process
         /// (i.e. this process). It inherits the filesystem and sandbox
         /// permissions but runs standalone.
@@ -4110,6 +4562,25 @@ pub mod wasix_32v1 {
             arg11: i32,
             arg12: i32,
         ) -> i32;
+        /// Spawns a new process within the context of the parent process
+        /// (i.e. this process). It inherits the filesystem and sandbox
+        /// permissions but runs standalone.
+        pub fn proc_spawn2(
+            arg0: i32,
+            arg1: i32,
+            arg2: i32,
+            arg3: i32,
+            arg4: i32,
+            arg5: i32,
+            arg6: i32,
+            arg7: i32,
+            arg8: i32,
+            arg9: i32,
+            arg10: i32,
+            arg11: i32,
+            arg12: i32,
+            arg13: i32,
+        ) -> i32;
         /// Returns the handle of the current process
         pub fn proc_id(arg0: i32) -> i32;
         /// Returns the parent handle of a particular process
@@ -4122,22 +4593,14 @@ pub mod wasix_32v1 {
         pub fn proc_join(arg0: i32, arg1: i32, arg2: i32) -> i32;
         /// Sends a signal to another process
         pub fn proc_signal(arg0: i32, arg1: i32) -> i32;
-        /// Connects to a websocket at a particular network URL
-        pub fn ws_connect(arg0: i32, arg1: i32, arg2: i32) -> i32;
-        /// Makes a HTTP request to a remote web resource and
-        /// returns a socket handles that are used to send and receive data
-        pub fn http_request(
-            arg0: i32,
-            arg1: i32,
-            arg2: i32,
-            arg3: i32,
-            arg4: i32,
-            arg5: i32,
-            arg6: i32,
-            arg7: i32,
-        ) -> i32;
-        /// Retrieves the status of a HTTP request
-        pub fn http_status(arg0: i32, arg1: i32) -> i32;
+        /// Read host-provided signal dispositions.
+        /// The size of the array should match that returned by `proc_signals_sizes_get`.
+        pub fn proc_signals_get(arg0: i32) -> i32;
+        /// Return host-provided signal count.
+        pub fn proc_signals_sizes_get(arg0: i32) -> i32;
+        /// Explicitly requests for the runtime to create a
+        /// snapshot of the guest module's state.
+        pub fn proc_snapshot() -> i32;
         /// Securely connects to a particular remote network
         pub fn port_bridge(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32) -> i32;
         /// Disconnects from a remote network
@@ -4196,6 +4659,15 @@ pub mod wasix_32v1 {
         ///
         /// Note: This is similar to `socket` in POSIX using PF_INET
         pub fn sock_open(arg0: i32, arg1: i32, arg2: i32, arg3: i32) -> i32;
+        /// Create a pair of interconnected sockets.
+        ///
+        /// creates a pair of interconnected sockets and returns both file
+        /// descriptors. The file descriptors returned by a successful
+        /// call will be the lowest-numbered file descriptors not currently open
+        /// for the process.
+        ///
+        /// Note: This is similar to `socketpair` in POSIX using PF_INET
+        pub fn sock_pair(arg0: i32, arg1: i32, arg2: i32, arg3: i32, arg4: i32) -> i32;
         /// Sets a particular socket setting
         /// Note: This is similar to `setsockopt` in POSIX for SO_REUSEADDR
         pub fn sock_set_opt_flag(arg0: i32, arg1: i32, arg2: i32) -> i32;
