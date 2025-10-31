@@ -538,6 +538,8 @@ pub const RIFLAGS_RECV_PEEK: Riflags = 1 << 0;
 pub const RIFLAGS_RECV_WAITALL: Riflags = 1 << 1;
 /// Indicates if the packet should be truncated to the buffer size
 pub const RIFLAGS_RECV_DATA_TRUNCATED: Riflags = 1 << 2;
+/// Return immediately if the read would block.
+pub const RIFLAGS_RECV_DONT_WAIT: Riflags = 1 << 3;
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
@@ -878,6 +880,10 @@ pub struct SignalDisposition {
     pub disp: Disposition,
 }
 pub type SignalDispositionArray<'a> = &'a [SignalDisposition];
+
+pub type Siflags = u16;
+/// Return immediately if the write would block.
+pub const SIFLAGS_SEND_DONT_WAIT: Siflags = 1 << 0;
 
 pub type Longsize = u64;
 pub type ShortHash = u64;
@@ -2882,6 +2888,83 @@ pub struct ProcSpawnFdOp {
     pub fdflagsext: Fdflagsext,
 }
 pub type ProcSpawnFdOpArray<'a> = &'a [ProcSpawnFdOp];
+pub type DlHandle = u32;
+pub type DlFlags = u32;
+pub const DL_FLAGS_LAZY: DlFlags = 1 << 0;
+pub const DL_FLAGS_NOW: DlFlags = 1 << 1;
+pub const DL_FLAGS_GLOBAL: DlFlags = 1 << 2;
+pub const DL_FLAGS_NOLOAD: DlFlags = 1 << 3;
+pub const DL_FLAGS_NODELETE: DlFlags = 1 << 4;
+pub const DL_FLAGS_DEEPBIND: DlFlags = 1 << 5;
+
+pub type FunctionPointer = usize;
+#[repr(transparent)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct WasmValueType(u8);
+/// A i32 value.
+pub const WASM_VALUE_TYPE_I32: WasmValueType = WasmValueType(0);
+/// A i64 value.
+pub const WASM_VALUE_TYPE_I64: WasmValueType = WasmValueType(1);
+/// A f32 value.
+pub const WASM_VALUE_TYPE_F32: WasmValueType = WasmValueType(2);
+/// A f64 value.
+pub const WASM_VALUE_TYPE_F64: WasmValueType = WasmValueType(3);
+/// A v128 value.
+pub const WASM_VALUE_TYPE_V128: WasmValueType = WasmValueType(4);
+impl WasmValueType {
+    pub const fn raw(&self) -> u8 {
+        self.0
+    }
+
+    pub fn name(&self) -> &'static str {
+        match self.0 {
+            0 => "I32",
+            1 => "I64",
+            2 => "F32",
+            3 => "F64",
+            4 => "V128",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+    pub fn message(&self) -> &'static str {
+        match self.0 {
+            0 => "A i32 value.",
+            1 => "A i64 value.",
+            2 => "A f32 value.",
+            3 => "A f64 value.",
+            4 => "A v128 value.",
+            _ => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+}
+impl fmt::Debug for WasmValueType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("WasmValueType")
+            .field("code", &self.0)
+            .field("name", &self.name())
+            .field("message", &self.message())
+            .finish()
+    }
+}
+impl From<u8> for WasmValueType {
+    fn from(a: u8) -> Self {
+        Self(a)
+    }
+}
+
+pub type WasmValueTypeArray<'a> = &'a [WasmValueType];
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct ReflectionResult {
+    /// Cacheable is set if the signature of the function will not change in the future
+    pub cacheable: Bool,
+    /// Number of arguments of the function.
+    /// 0 if the function does not exist
+    pub arguments: u16,
+    /// Number of results of the function.
+    /// 0 if the function does not exist
+    pub results: u16,
+}
 /// Sets the time value of a clock.
 /// Note: This is similar to `clock_settime` in POSIX.
 ///
@@ -4400,6 +4483,249 @@ pub unsafe fn epoll_wait(
     }
 }
 
+/// Close a dynamically-linked module.
+///
+pub unsafe fn dl_invalid_handle(handle: DlHandle) -> Result<(), Errno> {
+    let ret = wasix_64v1::dl_invalid_handle(handle as i32);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Open a dynamically-linked module.
+///
+pub unsafe fn dlopen(
+    path: &str,
+    flags: DlFlags,
+    err_buf: *mut u8,
+    err_buf_len: Size,
+    ld_library_path: &str,
+) -> Result<DlHandle, Errno> {
+    let mut rp0 = MaybeUninit::<DlHandle>::uninit();
+    let ret = wasix_64v1::dlopen(
+        path.as_ptr() as i64,
+        path.len() as i64,
+        flags as i32,
+        err_buf as i64,
+        err_buf_len as i32,
+        ld_library_path.as_ptr() as i64,
+        ld_library_path.len() as i64,
+        rp0.as_mut_ptr() as i64,
+    );
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const DlHandle)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Load a symbol from a dynamically-linked module.
+///
+pub unsafe fn dlsym(
+    handle: DlHandle,
+    symbol: &str,
+    err_buf: *mut u8,
+    err_buf_len: Size,
+) -> Result<Size, Errno> {
+    let mut rp0 = MaybeUninit::<Size>::uninit();
+    let ret = wasix_64v1::dlsym(
+        handle as i32,
+        symbol.as_ptr() as i64,
+        symbol.len() as i64,
+        err_buf as i64,
+        err_buf_len as i32,
+        rp0.as_mut_ptr() as i64,
+    );
+    match ret {
+        0 => Ok(core::ptr::read(rp0.as_mut_ptr() as i64 as *const Size)),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Call a function pointer with dynamic parameters.
+///
+/// ## Parameters
+///
+/// * `function_id` - An index into the __indirect_function_table
+///   
+///   Your module needs to either import or export the table to be able
+///   to call this function.
+/// * `values` - A buffer with the parameters to pass to the function.
+///   This buffer is expected to contain all parameters sequentially
+///   
+///   For example if the function takes an i32 and an i64, the
+///   buffer will be 12 bytes long, with the first 4 bytes
+///   being the i32 and the next 8 bytes being the i64.
+/// * `results` - A pointer to a buffer for the results of the function call.
+///   
+///   In most cases this will be a single value, but it could also
+///   contain multiple values. The same rules apply as for the
+///   parameters, i.e. the buffer needs to be large enough
+///   to hold all the results sequentially.
+/// * `strict` -
+///   If this is set to true, the function will return an error if the
+///   length and types of the parameters and results do not match the
+///   function signature.
+///   
+///   If this is set to false, the function will not perform any checks.
+///   Any missing bytes will be assumed to be zero and any extra bytes
+///   will be ignored.
+pub unsafe fn call_dynamic(
+    function_id: FunctionPointer,
+    values: &[u8],
+    results: *mut u8,
+    results_len: Pointersize,
+    strict: Bool,
+) -> Result<(), Errno> {
+    let ret = wasix_64v1::call_dynamic(
+        function_id as i64,
+        values.as_ptr() as i64,
+        values.len() as i64,
+        results as i64,
+        results_len as i64,
+        strict.0 as i32,
+    );
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Prepare a closure for execution.
+///
+/// ## Parameters
+///
+/// * `backing_function_id` - A index into the indirect function table that points to the function that will be called when the closure is executed.
+///   
+///   That function needs to conform to the following signature:
+///     uint8_t* values - a pointer to a buffer containing the arguments. See call_dynamic for more details.
+///     uint8_t* results - a pointer to a buffer where the results will be written. See call_dynamic for more details.
+///     void* user_data_ptr - the user_data_ptr that was passed to closure_prepare
+/// * `closure_id` - An index into the indirect function table that was previously allocated with closure_alloc
+///   
+///   After closure_prepare the slot in the indirect function table will contain a funcref to a closure with the requested signature.
+///   Every call to the closure will be translated to a call to the backing function.
+/// * `argument_types` - A list of types of the arguments that the closure will take.
+/// * `result_types` - A list of types that the closure will return.
+/// * `user_data_ptr` - A pointer to a buffer that will be passed to the closure when it is executed.
+pub unsafe fn closure_prepare(
+    backing_function_id: FunctionPointer,
+    closure_id: FunctionPointer,
+    argument_types: WasmValueTypeArray<'_>,
+    result_types: WasmValueTypeArray<'_>,
+    user_data_ptr: *mut u8,
+) -> Result<(), Errno> {
+    let ret = wasix_64v1::closure_prepare(
+        backing_function_id as i64,
+        closure_id as i64,
+        argument_types.as_ptr() as i64,
+        argument_types.len() as i64,
+        result_types.as_ptr() as i64,
+        result_types.len() as i64,
+        user_data_ptr as i64,
+    );
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Allocate a closure for use with the closure_prepare function.
+pub unsafe fn closure_allocate() -> Result<FunctionPointer, Errno> {
+    let mut rp0 = MaybeUninit::<FunctionPointer>::uninit();
+    let ret = wasix_64v1::closure_allocate(rp0.as_mut_ptr() as i64);
+    match ret {
+        0 => Ok(core::ptr::read(
+            rp0.as_mut_ptr() as i64 as *const FunctionPointer
+        )),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Free a closure that was previously allocated with closure_allocate.
+///
+/// After this call it is undefined what happens when you call the funcref at the index specified by closure_id.
+///
+/// ## Parameters
+///
+/// * `closure_id` - An index into the indirect function table that was previously allocated with closure_allocate
+pub unsafe fn closure_free(closure_id: FunctionPointer) -> Result<(), Errno> {
+    let ret = wasix_64v1::closure_free(closure_id as i64);
+    match ret {
+        0 => Ok(()),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
+/// Provides information about the signature of a function in the indirect
+/// function table at runtime.
+///
+/// ### Errors
+///
+/// Besides the standard error codes, `reflect_signature` may set `errno` to the
+/// following errors:
+///
+/// - EINVAL: The function pointer is not valid, i.e. it does not point to a
+/// function in the indirect function table or the function has a unsupported
+/// signature. The sizes in the result are undefined in this case.
+///
+/// - EOVERFLOW: The argument_types and result_types buffers were not big enough
+/// to hold the signature. They will be left unchanged. The reflection result
+/// will be valid.
+///
+/// ## Parameters
+///
+/// * `function_id` - An index into the indirect function table.
+///   
+///   If there is no function at the requested slot, `EINVAL` will be returned.
+/// * `argument_types` - A buffer for a list of types that the function takes as arguments.
+///   
+///   - If the buffer is too small to hold all argument types, it and
+///   `result_types` remain untouched, and `EOVERFLOW` is returned.
+///   - If the buffer is big enough, the types will be written to the buffer.
+///   - If the buffer is too big, all remaining bytes will be unchanged.
+///   
+///   If the `argument_types_len` is 0 this buffer is never accessed and can be
+///   null.
+/// * `argument_types_len` - Size of the buffer for argument types.
+/// * `result_types` - A buffer for a list of types that the function returns as results.
+///   
+///   - If the buffer is too small to hold all argument types, it and
+///   `argument_types` remain untouched, and `EOVERFLOW` is returned.
+///   - If  the buffer is big enough, the types will be written to the buffer.
+///   - If the buffer is too big, all remaining bytes will be unchanged.
+///   
+///   If the `result_types_len` is 0 this buffer is never accessed and can be
+///   null.
+/// * `result_types_len` - Size of the buffer for result types.
+///
+/// ## Return
+///
+/// The number of arguments and results and whether this result is cacheable.
+pub unsafe fn reflect_signature(
+    function_id: FunctionPointer,
+    argument_types: *mut WasmValueType,
+    argument_types_len: u16,
+    result_types: *mut WasmValueType,
+    result_types_len: u16,
+) -> Result<ReflectionResult, Errno> {
+    let mut rp0 = MaybeUninit::<ReflectionResult>::uninit();
+    let ret = wasix_64v1::reflect_signature(
+        function_id as i64,
+        argument_types as i64,
+        argument_types_len as i32,
+        result_types as i64,
+        result_types_len as i32,
+        rp0.as_mut_ptr() as i64,
+    );
+    match ret {
+        0 => Ok(core::ptr::read(
+            rp0.as_mut_ptr() as i64 as *const ReflectionResult
+        )),
+        _ => Err(Errno(ret as u16)),
+    }
+}
+
 pub mod wasix_64v1 {
     #[link(wasm_import_module = "wasix_64v1")]
     extern "C" {
@@ -4754,5 +5080,71 @@ pub mod wasix_64v1 {
         /// wait for an I/O event on an epoll file descriptor
         ///
         pub fn epoll_wait(arg0: i32, arg1: i64, arg2: i32, arg3: i64, arg4: i64) -> i32;
+        /// Close a dynamically-linked module.
+        ///
+        pub fn dl_invalid_handle(arg0: i32) -> i32;
+        /// Open a dynamically-linked module.
+        ///
+        pub fn dlopen(
+            arg0: i64,
+            arg1: i64,
+            arg2: i32,
+            arg3: i64,
+            arg4: i32,
+            arg5: i64,
+            arg6: i64,
+            arg7: i64,
+        ) -> i32;
+        /// Load a symbol from a dynamically-linked module.
+        ///
+        pub fn dlsym(arg0: i32, arg1: i64, arg2: i64, arg3: i64, arg4: i32, arg5: i64) -> i32;
+        /// Call a function pointer with dynamic parameters.
+        pub fn call_dynamic(
+            arg0: i64,
+            arg1: i64,
+            arg2: i64,
+            arg3: i64,
+            arg4: i64,
+            arg5: i32,
+        ) -> i32;
+        /// Prepare a closure for execution.
+        pub fn closure_prepare(
+            arg0: i64,
+            arg1: i64,
+            arg2: i64,
+            arg3: i64,
+            arg4: i64,
+            arg5: i64,
+            arg6: i64,
+        ) -> i32;
+        /// Allocate a closure for use with the closure_prepare function.
+        pub fn closure_allocate(arg0: i64) -> i32;
+        /// Free a closure that was previously allocated with closure_allocate.
+        ///
+        /// After this call it is undefined what happens when you call the funcref at the index specified by closure_id.
+        pub fn closure_free(arg0: i64) -> i32;
+        /// Provides information about the signature of a function in the indirect
+        /// function table at runtime.
+        ///
+        /// ### Errors
+        ///
+        /// Besides the standard error codes, `reflect_signature` may set `errno` to the
+        /// following errors:
+        ///
+        /// - EINVAL: The function pointer is not valid, i.e. it does not point to a
+        /// function in the indirect function table or the function has a unsupported
+        /// signature. The sizes in the result are undefined in this case.
+        ///
+        /// - EOVERFLOW: The argument_types and result_types buffers were not big enough
+        /// to hold the signature. They will be left unchanged. The reflection result
+        /// will be valid.
+        pub fn reflect_signature(
+            arg0: i64,
+            arg1: i64,
+            arg2: i32,
+            arg3: i64,
+            arg4: i32,
+            arg5: i64,
+        ) -> i32;
     }
 }
